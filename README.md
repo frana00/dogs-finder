@@ -21,23 +21,42 @@ Una aplicación móvil para ayudar a encontrar mascotas perdidas y reportar masc
 
 ```
 dogs-finder/
-├── App.js                 # Punto de entrada principal
-├── app.json               # Configuración de Expo
-├── package.json           # Dependencias del proyecto
+├── App.js                # Punto de entrada principal
+├── app.config.js         # Configuración avanzada de Expo y variables de entorno
+├── app.json              # Configuración básica de Expo
+├── package.json          # Dependencias del proyecto
+├── package-lock.json     # Lockfile de dependencias
+├── .env                  # Variables de entorno (no se sube a git)
+├── .gitignore            # Archivos y carpetas ignorados por git
+├── assets/               # Imágenes y recursos estáticos
+│   ├── adaptive-icon.png
+│   ├── favicon.png
+│   ├── icon.png
+│   └── splash-icon.png
 ├── src/
-│   ├── components/        # Componentes reutilizables
-│   ├── context/           # Contextos de React (Auth, Alerts)
-│   ├── navigation/        # Configuración de navegación
-│   │   ├── AppStack.js    # Navegación para usuarios autenticados
-│   │   └── AuthStack.js   # Navegación para autenticación
-│   ├── screens/           # Pantallas de la aplicación
-│   │   ├── Auth/          # Pantallas de autenticación
-│   │   ├── LostDogs/      # Pantallas de perros perdidos
-│   │   ├── FoundDogs/     # Pantallas de perros encontrados
-│   │   ├── ProfileScreen.js
-│   │   └── ChatScreen.js
-│   └── services/          # Servicios (API, almacenamiento)
+│   ├── data/
+│   │   └── dummyData.js  # Datos de ejemplo
+│   ├── navigation/
+│   │   ├── AppStack.js   # Navegación para usuarios autenticados
+│   │   └── AuthStack.js  # Navegación para autenticación
+│   ├── screens/
+│   │   ├── Auth/
+│   │   │   ├── LoginScreen.js
+│   │   │   └── RegisterScreen.js
+│   │   ├── FoundDogs/
+│   │   │   ├── CreateFoundAlertScreen.js
+│   │   │   ├── FoundDogDetailScreen.js
+│   │   │   └── FoundDogsListScreen.js
+│   │   ├── LostDogs/
+│   │   │   ├── ContactChatScreen.js
+│   │   │   ├── ContactOwnerScreen.js
+│   │   │   ├── CreateAlertScreen.js
+│   │   │   ├── LostDogDetailScreen.js
+│   │   │   └── LostDogsListScreen.js
+│   │   ├── ChatScreen.js
+│   │   └── ProfileScreen.js
 ```
+
 
 ## Instalación
 

@@ -43,7 +43,7 @@ dogs-finder/
 
 1. Clona el repositorio:
 ```
-git clone <url-del-repositorio>
+git clone https://github.com/frana00/dogs-finder.git
 cd dogs-finder
 ```
 

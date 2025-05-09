@@ -9,7 +9,7 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 
-// Creamos el contexto de autenticación
+// Crea el contexto de autenticación
 export const AuthContext = createContext();
 
 export default function App() {

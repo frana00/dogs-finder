@@ -1,5 +1,6 @@
 import 'react-native-get-random-values';
-import React, { useState, createContext } from 'react';
+import React, { useState } from 'react';
+import { AuthContext } from './src/context/AuthContext';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,8 +10,6 @@ import { ActivityIndicator, View, StyleSheet } from 'react-native';
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 
-// Crea el contexto de autenticación
-export const AuthContext = createContext();
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);

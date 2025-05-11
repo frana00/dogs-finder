@@ -3,7 +3,7 @@ import { StyleSheet, View, Text, TextInput, TouchableOpacity, Alert } from 'reac
 import { useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import { AuthContext } from '../../../App';
+import { AuthContext } from '../../context/AuthContext';
 
 const LoginScreen = () => {
   const [email, setEmail] = useState('');

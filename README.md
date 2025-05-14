@@ -22,7 +22,7 @@ Una aplicación móvil para ayudar a encontrar mascotas perdidas y reportar masc
 ```
 dogs-finder/
 ├── App.js                # Punto de entrada principal
-├── app.config.js         # Configuración avanzada de Expo y variables de entorno
+├── app.config.js         # Configuración avanzada de Expo
 ├── app.json              # Configuración básica de Expo
 ├── package.json          # Dependencias del proyecto
 ├── package-lock.json     # Lockfile de dependencias
@@ -34,28 +34,32 @@ dogs-finder/
 │   ├── icon.png
 │   └── splash-icon.png
 ├── src/
+│   ├── context/
+│   │   └── AuthContext.js         # Contexto de autenticación
 │   ├── data/
-│   │   └── dummyData.js  # Datos de ejemplo
+│   │   └── dummyData.js           # Datos de ejemplo
 │   ├── navigation/
-│   │   ├── AppStack.js   # Navegación para usuarios autenticados
-│   │   └── AuthStack.js  # Navegación para autenticación
+│   │   ├── AppStack.js            # Navegación para usuarios autenticados
+│   │   └── AuthStack.js           # Navegación para autenticación
 │   ├── screens/
 │   │   ├── Auth/
-│   │   │   ├── LoginScreen.js
-│   │   │   └── RegisterScreen.js
+│   │   │   ├── LoginScreen.js     # Pantalla de inicio de sesión
+│   │   │   └── RegisterScreen.js  # Pantalla de registro
 │   │   ├── FoundDogs/
-│   │   │   ├── CreateFoundAlertScreen.js
-│   │   │   ├── FoundDogDetailScreen.js
-│   │   │   └── FoundDogsListScreen.js
+│   │   │   ├── CreateFoundAlertScreen.js   # Crear alerta de perro encontrado
+│   │   │   ├── FoundDogDetailScreen.js     # Detalle de perro encontrado
+│   │   │   └── FoundDogsListScreen.js      # Lista de perros encontrados
 │   │   ├── LostDogs/
-│   │   │   ├── ContactChatScreen.js
-│   │   │   ├── ContactOwnerScreen.js
-│   │   │   ├── CreateAlertScreen.js
-│   │   │   ├── LostDogDetailScreen.js
-│   │   │   └── LostDogsListScreen.js
-│   │   ├── ChatScreen.js
-│   │   └── ProfileScreen.js
+│   │   │   ├── ContactChatScreen.js        # Chat con la persona que encontró
+│   │   │   ├── ContactOwnerScreen.js       # Contactar dueño
+│   │   │   ├── CreateAlertScreen.js        # Crear alerta de perro perdido
+│   │   │   ├── LostDogDetailScreen.js      # Detalle de perro perdido
+│   │   │   └── LostDogsListScreen.js       # Lista de perros perdidos
+│   │   ├── ChatScreen.js                   # Pantalla de chat general
+│   │   └── ProfileScreen.js                # Perfil de usuario
 ```
+
+
 
 
 ## Instalación

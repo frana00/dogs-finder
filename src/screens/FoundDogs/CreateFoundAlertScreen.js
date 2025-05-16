@@ -170,6 +170,7 @@ const FoundDogAlertScreen = ({ navigation }) => {
           placeholder="Buscar dirección..."
           minLength={3}
           fetchDetails={true}
+          predefinedPlaces={[]}
           onPress={(data, details = null) => {
             if (details && details.formatted_address) {
               setLocation(details.formatted_address);

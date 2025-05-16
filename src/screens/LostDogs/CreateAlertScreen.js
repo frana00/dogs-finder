@@ -121,8 +121,8 @@ const CreateAlertScreen = ({ navigation }) => {
 
         <Text style={[styles.label, {marginTop: 16}]}>¿Dónde se perdió?</Text>
         <GooglePlacesAutocomplete
-          placeholder="Buscar dirección..."
-          minLength={3}
+          placeholder="Buscar dirección o lugar"
+          minLength={2}
           fetchDetails={true}
           onPress={(data, details = null) => {
             if (details && details.formatted_address) {
@@ -136,6 +136,7 @@ const CreateAlertScreen = ({ navigation }) => {
             language: 'es',
             components: 'country:cl',
           }}
+          predefinedPlaces={[]}
           styles={{
             textInput: styles.input,
             listView: { zIndex: 10 },

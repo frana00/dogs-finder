@@ -1,6 +1,5 @@
 import React, { useState, useContext } from 'react';
-import Constants from 'expo-constants';
-import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Alert } from 'react-native';
+import { StyleSheet, View, Text, TextInput, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../../context/AuthContext';
@@ -11,6 +10,7 @@ const RegisterScreen = () => {
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [phone, setPhone] = useState('');
+  const [loading, setLoading] = useState(false);
   
   const navigation = useNavigation();
   const { register } = useContext(AuthContext);
@@ -21,31 +21,35 @@ const RegisterScreen = () => {
       Alert.alert('Error', 'Por favor completa todos los campos');
       return;
     }
+    
     if (password !== confirmPassword) {
       Alert.alert('Error', 'Las contraseñas no coinciden');
       return;
     }
+    
+    setLoading(true);
+    
     try {
-      const response = await fetch(Constants.expoConfig.extra.backendUrl, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          username: name,
-          email: email,
-          subscriptionEmail: email, // Puedes cambiar esto si tienes un campo separado
-          phoneNumber: phone,
-          role: 'USER'
-        })
-      });
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || 'Error en el registro');
+      const userData = {
+        name,
+        email,
+        password,
+        phone,
+        role: 'USER',
+        subscriptionEmail: email // Usar el mismo correo por defecto
+      };
+      
+      const result = await register(userData);
+      
+      if (result.success) {
+        // La navegación se manejará automáticamente por el estado de autenticación
+        Alert.alert('¡Registro exitoso!', 'Tu cuenta ha sido creada y has iniciado sesión.');
       }
-      const data = await response.json();
-      Alert.alert('¡Registro exitoso!', 'Tu cuenta ha sido creada. Ahora puedes iniciar sesión.');
-      navigation.navigate('Login');
     } catch (error) {
-      Alert.alert('Error', error.message || 'No se pudo registrar el usuario');
+      console.error('Error en el registro:', error);
+      Alert.alert('Error', error.message || 'No se pudo completar el registro. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -100,8 +104,16 @@ const RegisterScreen = () => {
           secureTextEntry
         />
         
-        <TouchableOpacity style={styles.button} onPress={handleRegister}>
-          <Text style={styles.buttonText}>Registrarse</Text>
+        <TouchableOpacity 
+          style={[styles.button, loading && styles.buttonDisabled]} 
+          onPress={handleRegister}
+          disabled={loading}
+        >
+          {loading ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Registrarse</Text>
+          )}
         </TouchableOpacity>
         
         <View style={styles.loginContainer}>
@@ -148,10 +160,14 @@ const styles = StyleSheet.create({
   },
   button: {
     backgroundColor: '#FF9800',
-    borderRadius: 8,
     padding: 15,
+    borderRadius: 8,
     alignItems: 'center',
     marginTop: 10,
+  },
+  buttonDisabled: {
+    backgroundColor: '#FFCC80',
+    opacity: 0.7,
   },
   buttonText: {
     color: '#fff',

@@ -1,31 +1,84 @@
-import React, { useState, useContext } from 'react';
-import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, TextInput, Alert } from 'react-native';
+import React, { useState, useContext, useEffect } from 'react';
+import { StyleSheet, View, Text, Image, TouchableOpacity, ScrollView, TextInput, Alert, ActivityIndicator } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../context/AuthContext';
 
 const ProfileScreen = () => {
   const [isEditing, setIsEditing] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const { user, logout } = useContext(AuthContext);
+  
+  // Datos del usuario desde el contexto
   const [userData, setUserData] = useState({
-    name: 'Juan Pérez',
-    email: 'juan@example.com',
-    phone: '123-456-7890',
-    address: 'Calle Principal 123, Ciudad',
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+    address: user?.address || '',
   });
   
   const [editableData, setEditableData] = useState({...userData});
-  const { logout } = useContext(AuthContext);
 
-  const handleSave = () => {
+  // Actualizar los datos editables cuando cambie el usuario
+  useEffect(() => {
+    if (user) {
+      setUserData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+      });
+      setEditableData({
+        name: user.name || '',
+        email: user.email || '',
+        phone: user.phone || '',
+        address: user.address || '',
+      });
+    }
+  }, [user]);
+
+  if (!user) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF9800" />
+      </View>
+    );
+  }
+
+  const handleSave = async () => {
     // Validación básica
     if (!editableData.name || !editableData.email || !editableData.phone) {
       Alert.alert('Error', 'Por favor completa los campos obligatorios');
       return;
     }
     
-    // Guardar cambios
-    setUserData(editableData);
-    setIsEditing(false);
+    setLoading(true);
+    try {
+      // Aquí iría la llamada a la API para actualizar los datos del usuario
+      // Ejemplo:
+      // const response = await fetch('http://localhost:8080/api/v1/users/me', {
+      //   method: 'PUT',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //     'Authorization': `Bearer ${token}`
+      //   },
+      //   body: JSON.stringify(editableData)
+      // });
+      
+      // if (!response.ok) {
+      //   throw new Error('Error al actualizar los datos');
+      // }
+      
+      // Actualizar los datos locales
+      setUserData(editableData);
+      setIsEditing(false);
+      Alert.alert('Éxito', 'Datos actualizados correctamente');
+    } catch (error) {
+      console.error('Error al guardar los cambios:', error);
+      Alert.alert('Error', 'No se pudieron guardar los cambios. Inténtalo de nuevo.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
@@ -134,6 +187,12 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+  },
   container: {
     flex: 1,
     backgroundColor: '#fff',

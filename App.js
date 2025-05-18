@@ -1,51 +1,46 @@
 import 'react-native-get-random-values';
-import React, { useState } from 'react';
-import { AuthContext } from './src/context/AuthContext';
+import React, { useContext, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { ActivityIndicator, View, StyleSheet } from 'react-native';
+import { View, ActivityIndicator, StyleSheet } from 'react-native';
+
+// Importar contexto de autenticación
+import { AuthContext, AuthProvider } from './src/context/AuthContext';
 
 // Importar stacks de navegación
 import AuthStack from './src/navigation/AuthStack';
 import AppStack from './src/navigation/AppStack';
 
+// Componente para manejar la navegación basada en autenticación
+const Navigation = () => {
+  const { isAuthenticated, loading, checkAuth } = useContext(AuthContext);
+
+  useEffect(() => {
+    // Verificar si hay una sesión guardada al cargar la app
+    checkAuth();
+  }, [checkAuth]);
+
+  if (loading) {
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF9800" />
+      </View>
+    );
+  }
+
+  return isAuthenticated ? <AppStack /> : <AuthStack />;
+};
 
 export default function App() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  // Funciones simplificadas para autenticación
-  const authContext = {
-    isAuthenticated,
-    loading,
-    login: () => {
-      setLoading(true);
-      setTimeout(() => {
-        setIsAuthenticated(true);
-        setLoading(false);
-      }, 1000);
-    },
-    register: () => {
-      setLoading(true);
-      setTimeout(() => {
-        setIsAuthenticated(true);
-        setLoading(false);
-      }, 1000);
-    },
-    logout: () => {
-      setIsAuthenticated(false);
-    }
-  };
-
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />
-      <AuthContext.Provider value={authContext}>
+      <AuthProvider>
         <NavigationContainer>
-          {isAuthenticated ? <AppStack /> : <AuthStack />}
+          <Navigation />
         </NavigationContainer>
-      </AuthContext.Provider>
+      </AuthProvider>
     </SafeAreaProvider>
   );
 }

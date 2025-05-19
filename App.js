@@ -5,8 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { View, ActivityIndicator, StyleSheet } from 'react-native';
 
-// Importar contexto de autenticación
+// Importar contextos
 import { AuthContext, AuthProvider } from './src/context/AuthContext';
+import { AlertProvider } from './src/context/AlertContext';
 
 // Importar stacks de navegación
 import AuthStack from './src/navigation/AuthStack';
@@ -37,9 +38,11 @@ export default function App() {
     <SafeAreaProvider>
       <StatusBar style="auto" />
       <AuthProvider>
-        <NavigationContainer>
-          <Navigation />
-        </NavigationContainer>
+        <AlertProvider>
+          <NavigationContainer>
+            <Navigation />
+          </NavigationContainer>
+        </AlertProvider>
       </AuthProvider>
     </SafeAreaProvider>
   );

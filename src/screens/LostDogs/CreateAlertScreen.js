@@ -4,6 +4,7 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, KeyboardAvo
 import * as Location from 'expo-location';
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import * as ImagePicker from 'expo-image-picker';
+import { API_CONFIG, buildUrl } from '../../config/api'; // Importar configuración de API
 
 const CreateAlertScreen = ({ navigation }) => {
   const [dogName, setDogName] = useState('');
@@ -12,6 +13,7 @@ const CreateAlertScreen = ({ navigation }) => {
   const [location, setLocation] = useState('');
   const [gettingLocation, setGettingLocation] = useState(false);
   const [photos, setPhotos] = useState([]); // Para varias imágenes (máx 5)
+  const [isLoading, setIsLoading] = useState(false); // Estado para el indicador de carga
 
   useEffect(() => {
     const getLocation = async () => {
@@ -47,21 +49,135 @@ const CreateAlertScreen = ({ navigation }) => {
     getLocation();
   }, []);
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!dogName || !description || !location) {
-      Alert.alert('Completa todos los campos');
+      Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: nombre, descripción y ubicación.');
       return;
     }
-    // Aquí se podría guardar la alerta en un backend o localmente
-    Alert.alert('Alerta creada', 'Tu alerta ha sido registrada correctamente.', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
-    setDogName('');
-    setDescription('');
-    setLocation('');
-    setChip('');
-    setPhotos([]);
-    // navigation.goBack(); // Si quieres regresar automáticamente
+
+    setIsLoading(true);
+
+    // Paso 1: Crear la alerta con datos textuales
+    const alertTextData = {
+      username: 'currentUserPlaceholder', // REEMPLAZAR: Obtener el username real
+      type: 'LOST',
+      chipNumber: chip || null,
+      status: 'ACTIVE',
+      sex: 'UNKNOWN',
+      date: new Date().toISOString(),
+      title: dogName,
+      description: description,
+      breed: 'mixed',
+      postalCode: '00000', // Placeholder
+      countryCode: 'CL', // Placeholder
+      // photoFilenames ya no se envía aquí, se manejarán en el segundo paso
+    };
+
+    let alertId;
+
+    try {
+      const createAlertResponse = await fetch(buildUrl(API_CONFIG.ENDPOINTS.CREATE_ALERT), {
+        method: 'POST',
+        headers: {
+          ...API_CONFIG.DEFAULT_HEADERS, // Esto incluye 'Content-Type': 'application/json'
+          // Añadir otros headers necesarios, como Authorization si es requerido
+        },
+        body: JSON.stringify(alertTextData),
+      });
+
+      const createAlertResponseData = await createAlertResponse.json();
+
+      if (!createAlertResponse.ok) {
+        const errorMessage = createAlertResponseData.message || createAlertResponseData.error || 'Error al crear la alerta base.';
+        Alert.alert('Error Creando Alerta', errorMessage);
+        setIsLoading(false);
+        return;
+      }
+
+      // Asumiendo que la respuesta contiene el id de la alerta creada
+      // Ajusta 'id' o 'alertId' según la estructura real de tu respuesta
+      alertId = createAlertResponseData.id || createAlertResponseData.alertId; 
+      if (!alertId) {
+        Alert.alert('Error Creando Alerta', 'No se recibió el ID de la alerta creada.');
+        setIsLoading(false);
+        return;
+      }
+
+      // Paso 2: Subir fotos si hay y la alerta se creó correctamente
+      if (photos.length > 0) {
+        let allPhotosUploadedSuccessfully = true;
+
+        for (const photoUri of photos) {
+          const photoFormData = new FormData();
+          const uriParts = photoUri.split('.');
+          const fileType = uriParts[uriParts.length - 1];
+          
+          photoFormData.append('file', { // Asumiendo que el backend espera el archivo con el nombre de campo 'file'
+            uri: photoUri,
+            name: `photo_${Date.now()}.${fileType}`, // Nombre de archivo único
+            type: `image/${fileType}`,
+          });
+
+          // Si el backend de /alerts/{id}/photos espera photoFilenames en el cuerpo de FormData junto al archivo:
+          // photoFormData.append('photoFilenames', JSON.stringify([`photo_${Date.now()}.${fileType}`]));
+
+          try {
+            const uploadUrl = buildUrl(API_CONFIG.ENDPOINTS.UPLOAD_PHOTO_TO_ALERT.replace('{alertId}', alertId));
+            const uploadResponse = await fetch(uploadUrl, {
+              method: 'POST',
+              headers: {
+                // Content-Type es puesto automáticamente por fetch para FormData
+                // Quitar 'Accept': 'application/json' si el endpoint de subida no devuelve JSON o da error
+                // 'Accept': API_CONFIG.DEFAULT_HEADERS.Accept,
+                // Otros headers como Authorization si son necesarios
+              },
+              body: photoFormData,
+            });
+
+            if (!uploadResponse.ok) {
+              allPhotosUploadedSuccessfully = false;
+              // const uploadErrorData = await uploadResponse.json(); // Puede que no haya cuerpo JSON en error de subida
+              // const photoErrorMessage = uploadErrorData.message || 'Error subiendo una foto.';
+              console.error(`Error subiendo foto ${photoUri}: ${uploadResponse.status}`);
+              // Podrías decidir parar aquí o continuar subiendo las otras fotos
+            }
+          } catch (uploadError) {
+            allPhotosUploadedSuccessfully = false;
+            console.error(`Excepción subiendo foto ${photoUri}:`, uploadError);
+          }
+        }
+
+        if (!allPhotosUploadedSuccessfully) {
+          Alert.alert('Subida Incompleta', 'Algunas fotos no pudieron ser subidas. La alerta fue creada.');
+          // No limpiamos el formulario para que el usuario pueda reintentar o ver qué fotos faltan,
+          // o podrías limpiar y navegar atrás de todas formas.
+        } else {
+          Alert.alert('Alerta y Fotos Subidas', 'Tu alerta y fotos han sido registradas correctamente.', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]);
+          setDogName('');
+          setDescription('');
+          setLocation('');
+          setChip('');
+          setPhotos([]);
+        }
+      } else {
+        // No hay fotos para subir, la alerta de texto se creó bien
+        Alert.alert('Alerta Creada', 'Tu alerta ha sido registrada correctamente (sin fotos).', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+        setDogName('');
+        setDescription('');
+        setLocation('');
+        setChip('');
+        setPhotos([]);
+      }
+
+    } catch (error) {
+      console.error('Error en handleSubmit:', error);
+      Alert.alert('Error de Red', 'No se pudo conectar al servidor. Verifica tu conexión o intenta más tarde.');
+    }
+    setIsLoading(false);
   };
 
   // Función para elegir imagen
@@ -105,21 +221,23 @@ const CreateAlertScreen = ({ navigation }) => {
         />
         <Text style={styles.label}>Descripción</Text>
         <TextInput
-          style={[styles.input, { height: 80 }]}
-          placeholder="Color, tamaño, características..."
+          style={styles.input}
+          placeholder="Describe al perro, ropa, señas particulares..."
           value={description}
           onChangeText={setDescription}
           multiline
+          numberOfLines={3}
+          textAlignVertical="top"
         />
-        <Text style={styles.label}>Chip (opcional)</Text>
+        <Text style={styles.label}>Número de Chip (opcional)</Text>
         <TextInput
           style={styles.input}
-          placeholder="Número de chip"
+          placeholder="Ej: 900123000123456"
           value={chip}
           onChangeText={setChip}
+          keyboardType="numeric"
         />
-
-        <Text style={[styles.label, {marginTop: 16}]}>¿Dónde se perdió?</Text>
+        <Text style={styles.label}>Ubicación donde se perdió/vio</Text>
         <GooglePlacesAutocomplete
           placeholder="Buscar dirección o lugar"
           minLength={2}
@@ -189,8 +307,12 @@ const CreateAlertScreen = ({ navigation }) => {
             </View>
           ))}
         </View>
-        <TouchableOpacity style={styles.button} onPress={handleSubmit} activeOpacity={0.8}>
-          <Text style={styles.buttonText}>Crear Alerta</Text>
+        <TouchableOpacity style={styles.button} onPress={handleSubmit} activeOpacity={0.8} disabled={isLoading}>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Crear Alerta</Text>
+          )}
         </TouchableOpacity>
         <View style={{ height: 80 }} />
       </ScrollView>

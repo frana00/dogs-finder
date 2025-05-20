@@ -2,6 +2,7 @@ import { createContext, useState, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_CONFIG } from '../config/api';
+import { login as dummyLogin } from '../data/dummyData';
 
 export const AuthContext = createContext();
 
@@ -31,51 +32,38 @@ export const AuthProvider = ({ children }) => {
   const API_BASE_URL = API_CONFIG.BASE_URL;
 
   const login = async (email, password) => {
-    setLoading(true);
-    try {
-      console.log('Iniciando sesión con:', { email: email ? 'presente' : 'ausente', password: password ? 'presente' : 'ausente' });
-      
-      if (!email || !password) {
-        console.error('Email o contraseña vacíos');
-        throw new Error('Por favor ingresa tu correo y contraseña');
-      }
-
-      // Simular una respuesta exitosa del servidor
-      const mockUser = {
-        id: '123',
-        email: email,
-        name: email.split('@')[0], // Usar la parte antes del @ como nombre
-        role: 'user'
-      };
-
-      const mockToken = 'mock-jwt-token-' + Date.now();
-
-      // Simular un retraso de red
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Guardar token y datos del usuario
-      try {
-        await AsyncStorage.setItem('userToken', mockToken);
-        await AsyncStorage.setItem('userData', JSON.stringify(mockUser));
-        
-        setToken(mockToken);
-        setUser(mockUser);
-        setIsAuthenticated(true);
-        
-        console.log('Inicio de sesión simulado exitosamente');
-        return { success: true };
-      } catch (storageError) {
-        console.error('Error al guardar los datos de autenticación:', storageError);
-        throw new Error('Error al guardar los datos de la sesión');
-      }
-    } catch (error) {
-      console.error('Error en login:', error);
-      Alert.alert('Error', error.message || 'Error al iniciar sesión');
-      return { success: false, error: error.message };
-    } finally {
-      setLoading(false);
+  setLoading(true);
+  try {
+    if (!email || !password) {
+      throw new Error('Por favor ingresa tu correo y contraseña');
     }
-  };
+
+    // Usar el login real de los datos ficticios
+    const user = dummyLogin(email, password);
+
+    if (!user) {
+      throw new Error('Usuario o contraseña incorrectos');
+    }
+
+    // Simular un token
+    const mockToken = 'mock-jwt-token-' + Date.now();
+
+    // Guardar en AsyncStorage
+    await AsyncStorage.setItem('userToken', mockToken);
+    await AsyncStorage.setItem('userData', JSON.stringify(user));
+
+    setToken(mockToken);
+    setUser(user);
+    setIsAuthenticated(true);
+
+    return { success: true };
+  } catch (error) {
+    Alert.alert('Error', error.message || 'Error al iniciar sesión');
+    return { success: false, error: error.message };
+  } finally {
+    setLoading(false);
+  }
+};
 
   const register = async (userData) => {
     setLoading(true);

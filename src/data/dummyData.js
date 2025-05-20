@@ -1,10 +1,46 @@
-// --- Usuarios Ficticios ---
+import SHA256 from 'crypto-js/sha256';
+
+// --- Usuarios Ficticios (con hashes SHA256 reales de contraseña) ---
 export const dummyUsers = {
-    user1: { id: 'user1', name: 'Juan Pérez', phone: '+56911111111', email: 'juan.perez@email.com' },
-    user2: { id: 'user2', name: 'María López', phone: '+56922222222', email: 'maria.lopez@email.com' },
-    user3: { id: 'user3', name: 'Carlos Rodríguez', phone: '+56933333333', email: 'carlos.rodriguez@email.com' },
-    user4: { id: 'user4', name: 'Ana Martínez', phone: '+56944444444', email: 'ana.martinez@email.com' },
-  };
+  user1: { id: 'user1', name: 'Fran Illanes', phone: '+56911111111', email: 'fran.illanes@email.com', passwordHash: 'abf6848310229c7b087f6d70a1b6af928e3017fcb5212ac7bd2b6b7a9b4507ae' }, 
+  user2: { id: 'user2', name: 'Dani Díaz', phone: '+56922222222', email: 'dani.diaz@email.com', passwordHash: '5fc3055c04c89c7adef3460f224d0dc46d02f2713ee2f7b5683ab6a02edf7a16' }, 
+  user3: { id: 'user3', name: 'Jana Montero', phone: '+56933333333', email: 'jana.montero@email.com', passwordHash: '42659c7157eca11ae21e839de2a9035c547276869acc17c70c33791b337b5ab8' }, 
+  user4: { id: 'user4', name: 'Luis Pedraza', phone: '+56944444444', email: 'luis.pedraza@email.com', passwordHash: '0f5eb99e04a0c93747e0b2a848530f12bfa8356198e8543a0497086db080f942' } 
+};
+
+// --- Simulación de autenticación ---
+
+let currentUser = null;
+
+/**
+ * Simula el login con email y password. Devuelve el usuario si es correcto, null si no.
+ */
+export function login(email, password) {
+  const passwordHash = SHA256(password).toString();
+  const user = Object.values(dummyUsers).find(
+    u => u.email === email && u.passwordHash === passwordHash
+  );
+  if (user) {
+    currentUser = user;
+    return user;
+  }
+  return null;
+}
+
+/**
+ * Simula el logout.
+ */
+export function logout() {
+  currentUser = null;
+}
+
+/**
+ * Devuelve el usuario autenticado actual (o null si no hay login).
+ */
+export function getCurrentUser() {
+  return currentUser;
+}
+
   
   // --- Datos para Perros Perdidos ---
   export const dummyLostDogs = [
@@ -51,6 +87,40 @@ export const dummyUsers = {
   ];
   
   // --- Datos para Perros Encontrados ---
+
+// --- Helpers para simulación de datos ---
+
+
+/**
+ * Agrega una alerta de perro perdido a dummyLostDogs y la asocia al usuario actual.
+ * @param {Object} alertData - Datos de la alerta (name, breed, location, date, description, images, chip, etc)
+ * @returns {Object} La alerta creada
+ */
+export function addLostDogAlert(alertData) {
+  const newAlert = {
+    ...alertData,
+    id: (dummyLostDogs.length + 1).toString(),
+    contact: getCurrentUser(),
+  };
+  dummyLostDogs.push(newAlert);
+  return newAlert;
+}
+
+/**
+ * Agrega una alerta de perro encontrado a dummyFoundDogs y la asocia al usuario actual.
+ * @param {Object} alertData - Datos de la alerta (breed, location, date, description, images, chipStatus, notes, etc)
+ * @returns {Object} La alerta creada
+ */
+export function addFoundDogAlert(alertData) {
+  const newAlert = {
+    ...alertData,
+    id: 'f' + (dummyFoundDogs.length + 1).toString(),
+    contact: getCurrentUser(),
+  };
+  dummyFoundDogs.push(newAlert);
+  return newAlert;
+}
+
   export const dummyFoundDogs = [
      {
       id: 'f1', breed: 'Bulldog Francés', location: 'Parque Bustamante', date: '18/04/2025',

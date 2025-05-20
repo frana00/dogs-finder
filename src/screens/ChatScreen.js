@@ -5,28 +5,28 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 const DUMMY_CHATS = [
   {
     id: '1',
-    name: 'María López',
+    name: 'Fran Illanes',
     lastMessage: 'Hola, vi tu anuncio sobre Max',
     time: '10:30',
     unread: 2,
   },
   {
     id: '2',
-    name: 'Carlos Rodríguez',
+    name: 'Dani Díaz',
     lastMessage: '¿Dónde encontraste a mi perro?',
     time: 'Ayer',
     unread: 0,
   },
   {
     id: '3',
-    name: 'Ana Martínez',
+    name: 'Jana Montero',
     lastMessage: 'Gracias por la información',
     time: 'Ayer',
     unread: 0,
   },
   {
     id: '4',
-    name: 'Pedro Sánchez',
+    name: 'Luis Pedraza',
     lastMessage: 'Te envío la foto de mi perro',
     time: 'Lun',
     unread: 1,

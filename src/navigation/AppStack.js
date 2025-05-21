@@ -13,6 +13,7 @@ import FoundDogDetailScreen from '../screens/FoundDogs/FoundDogDetailScreen';
 import FoundDogsListScreen from '../screens/FoundDogs/FoundDogsListScreen';
 import CreateFoundAlertScreen from '../screens/FoundDogs/CreateFoundAlertScreen';
 import ChatScreen from '../screens/ChatScreen';
+import MapScreen from '../screens/MapScreen'; // Import MapScreen
 
 const Tab = createBottomTabNavigator();
 
@@ -52,7 +53,9 @@ const AppStack = () => {
         tabBarIcon: ({ focused, color, size }) => {
           let iconName;
 
-          if (route.name === 'Perdidos') {
+          if (route.name === 'Mapa') { // Added Mapa
+            iconName = focused ? 'map' : 'map-outline';
+          } else if (route.name === 'Perdidos') {
             iconName = focused ? 'paw' : 'paw-outline';
           } else if (route.name === 'Encontrados') {
             iconName = focused ? 'search' : 'search-outline';
@@ -66,9 +69,10 @@ const AppStack = () => {
         },
         tabBarActiveTintColor: '#FF9800',
         tabBarInactiveTintColor: 'gray',
-        headerShown: true,
+        headerShown: true, // Keep true if you want headers for all tabs, or customize per screen
       })}
     >
+      <Tab.Screen name="Mapa" component={MapScreen} options={{ title: 'Mapa' }} /> 
       <Tab.Screen name="Perdidos" options={{ title: 'Perdidos' }}>
         {() => (
           <LostDogsStack />

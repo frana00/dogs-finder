@@ -52,7 +52,8 @@ export function getCurrentUser() {
         'https://images.pexels.com/photos/2607544/pexels-photo-2607544.jpeg?auto=compress&cs=tinysrgb&w=400',
       ],
       chip: 'No',
-      contact: dummyUsers.user1 // Dueño: Juan Pérez
+      contact: dummyUsers.user1, // Dueño: Juan Pérez
+      coordinates: { latitude: -33.4489, longitude: -70.6693 }
     },
     {
       id: '2', name: 'Luna', breed: 'Beagle', location: 'Av. Irarrázaval con Suecia', date: '12/04/2025',
@@ -62,7 +63,8 @@ export function getCurrentUser() {
         'https://images.pexels.com/photos/59523/pexels-photo-59523.jpeg?auto=compress&cs=tinysrgb&w=400'
       ],
       chip: 'Sí',
-      contact: dummyUsers.user2 // Dueña: María López
+      contact: dummyUsers.user2, // Dueña: María López
+      coordinates: { latitude: -33.4500, longitude: -70.6700 }
     },
     {
       id: '3', name: 'Rocky', breed: 'Pastor Alemán', location: 'Plaza Ñuñoa', date: '10/04/2025',
@@ -72,7 +74,8 @@ export function getCurrentUser() {
         'https://images.pexels.com/photos/1619690/pexels-photo-1619690.jpeg?auto=compress&cs=tinysrgb&w=400',
       ],
       chip: 'No',
-      contact: dummyUsers.user3 // Dueño: Carlos Rodríguez
+      contact: dummyUsers.user3, // Dueño: Carlos Rodríguez
+      coordinates: { latitude: -33.4510, longitude: -70.6710 }
     },
     {
       id: '4', name: 'Kira', breed: 'Husky Siberiano', location: 'Cerro San Cristóbal (Sector Tupahue)', date: '08/04/2025',
@@ -82,7 +85,8 @@ export function getCurrentUser() {
           'https://images.pexels.com/photos/460823/pexels-photo-460823.jpeg?auto=compress&cs=tinysrgb&w=400'
       ],
       chip: 'Sí',
-      contact: dummyUsers.user4 // Dueña: Ana Martínez
+      contact: dummyUsers.user4, // Dueña: Ana Martínez
+      coordinates: { latitude: -33.4520, longitude: -70.6720 }
     },
   ];
   
@@ -130,7 +134,8 @@ export function addFoundDogAlert(alertData) {
         'https://images.pexels.com/photos/1490908/pexels-photo-1490908.jpeg?auto=compress&cs=tinysrgb&w=400'
       ],
       chipStatus: 'no_sabe', chipNumber: '', dogSafe: 'si', notes: 'Lo tengo en mi depto temporalmente.',
-      contact: dummyUsers.user4 // Quien encontró: Ana Martínez
+      contact: dummyUsers.user4, // Quien encontró: Ana Martínez
+      coordinates: { latitude: -33.4530, longitude: -70.6730 }
     },
     {
       id: 'f2', breed: 'Mestizo', location: 'Barrio Italia', date: '17/04/2025',
@@ -140,7 +145,8 @@ export function addFoundDogAlert(alertData) {
         'https://images.pexels.com/photos/220938/pexels-photo-220938.jpeg?auto=compress&cs=tinysrgb&w=400'
       ],
       chipStatus: 'no', chipNumber: '', dogSafe: 'no', notes: 'Le di agua y comida, pero sigue por la zona.',
-      contact: dummyUsers.user1 // Quien encontró: Juan Pérez
+      contact: dummyUsers.user1, // Quien encontró: Juan Pérez
+      coordinates: { latitude: -33.4540, longitude: -70.6740 }
     },
     {
       id: 'f3', breed: 'Golden Retriever', location: 'Parque Araucano', date: '17/04/2025',
@@ -149,7 +155,8 @@ export function addFoundDogAlert(alertData) {
           'https://images.pexels.com/photos/1458916/pexels-photo-1458916.jpeg?auto=compress&cs=tinysrgb&w=400'
       ],
       chipStatus: 'no_sabe', chipNumber: '', dogSafe: 'si', notes: 'Lo resguardé en mi casa.',
-      contact: dummyUsers.user2 // Quien encontró: María López
+      contact: dummyUsers.user2, // Quien encontró: María López
+      coordinates: { latitude: -33.4550, longitude: -70.6750 }
     },
     {
       id: 'f4', breed: 'Shih Tzu', location: 'Metro Los Leones (Salida Sur)', date: '15/04/2025',
@@ -159,6 +166,7 @@ export function addFoundDogAlert(alertData) {
         'https://images.pexels.com/photos/4587987/pexels-photo-4587987.jpeg?auto=compress&cs=tinysrgb&w=400'
       ],
       chipStatus: 'no', chipNumber: '', dogSafe: 'si', notes: 'Le compré un arnés temporal, está en mi hogar.',
-      contact: dummyUsers.user3 // Quien encontró: Carlos Rodríguez
+      contact: dummyUsers.user3, // Quien encontró: Carlos Rodríguez
+      coordinates: { latitude: -33.4560, longitude: -70.6760 }
     },
   ];

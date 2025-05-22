@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, Callout } from 'react-native-maps';
 import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
 
 const MapScreen = () => {
@@ -77,34 +77,55 @@ const MapScreen = () => {
 
   return (
     <View style={styles.container}>
+      {/* Título y resumen */}
+      <View style={styles.headerBox}>
+        <Text style={styles.title}>Mapa de perros perdidos y encontrados</Text>
+        <Text style={styles.subtitle}>
+          {dummyLostDogs.length} perdidos · {dummyFoundDogs.length} encontrados
+        </Text>
+      </View>
       <MapView
         style={styles.map}
         initialRegion={getInitialRegion()}
-        showsUserLocation={true} // Shows the user's current location blue dot
+        showsUserLocation={true}
       >
-        {/* Markers for Lost Dogs */}
+        {/* Markers para perros perdidos */}
         {dummyLostDogs.map(dog => (
           <Marker
             key={dog.id}
             coordinate={dog.coordinates}
             pinColor="orange"
-            title={dog.name}
-            description="Perdido"
-          />
+          >
+            <Callout tooltip>
+              <View style={styles.calloutBoxLost}>
+                <Text style={styles.calloutTitle}>{dog.name} (Perdido)</Text>
+                <Text>Raza: {dog.breed}</Text>
+                <Text>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+              </View>
+            </Callout>
+          </Marker>
         ))}
-
-        {/* Markers for Found Dogs */}
+        {/* Markers para perros encontrados */}
         {dummyFoundDogs.map(dog => (
           <Marker
             key={dog.id}
             coordinate={dog.coordinates}
             pinColor="green"
-            title={dog.breed} // Using breed as per instruction, could be name if available
-            description="Encontrado"
-          />
+          >
+            <Callout tooltip>
+              <View style={styles.calloutBoxFound}>
+                <Text style={styles.calloutTitle}>{dog.breed} (Encontrado)</Text>
+                <Text>¿Reconoces este perro?</Text>
+              </View>
+            </Callout>
+          </Marker>
         ))}
       </MapView>
-      {errorMsg && !loading && ( // Display error message subtly if location was denied/failed but we have a fallback
+      {/* Botón flotante para ver lista (solo UI) */}
+      <View style={styles.fabBox}>
+        <Text style={styles.fabText}>Ver lista</Text>
+      </View>
+      {errorMsg && !loading && (
         <Text style={styles.errorToast}>
           {errorMsg}. Mostrando región por defecto.
         </Text>
@@ -116,9 +137,71 @@ const MapScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#fff',
+  },
+  headerBox: {
+    backgroundColor: '#fff',
+    paddingTop: 16,
+    paddingBottom: 4,
+    alignItems: 'center',
+    zIndex: 2,
+  },
+  title: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 2,
+    color: '#222',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
   },
   map: {
-    ...StyleSheet.absoluteFillObject,
+    flex: 1,
+  },
+  fabBox: {
+    position: 'absolute',
+    bottom: 32,
+    right: 24,
+    backgroundColor: '#ff9800',
+    borderRadius: 24,
+    paddingHorizontal: 18,
+    paddingVertical: 10,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 2, height: 2 },
+    shadowRadius: 4,
+    zIndex: 10,
+  },
+  fabText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 16,
+  },
+  calloutBoxLost: {
+    backgroundColor: '#fff3e0',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 140,
+    alignItems: 'flex-start',
+    borderColor: '#ff9800',
+    borderWidth: 1,
+  },
+  calloutBoxFound: {
+    backgroundColor: '#e0ffe6',
+    borderRadius: 8,
+    padding: 8,
+    minWidth: 120,
+    alignItems: 'flex-start',
+    borderColor: '#4caf50',
+    borderWidth: 1,
+  },
+  calloutTitle: {
+    fontWeight: 'bold',
+    marginBottom: 2,
+    color: '#222',
   },
   centered: {
     flex: 1,
@@ -132,7 +215,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: 10,
   },
-  errorToast: { // For a less intrusive error message when map still loads
+  errorToast: {
     position: 'absolute',
     bottom: 20,
     left: 20,
@@ -142,7 +225,7 @@ const styles = StyleSheet.create({
     padding: 10,
     borderRadius: 5,
     textAlign: 'center',
-    zIndex: 1, // Ensure toast is above map elements if it overlaps
+    zIndex: 1,
   },
 });
 

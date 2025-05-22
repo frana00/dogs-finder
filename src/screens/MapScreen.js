@@ -4,6 +4,9 @@ import * as Location from 'expo-location';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
 
+// TODO: Reemplaza esta variable por el valor real del usuario logueado desde contexto, props, redux, etc.
+const userName = 'Fran';
+
 const MapScreen = ({ navigation }) => {
   const [showLostList, setShowLostList] = useState(false);
   const [showFoundList, setShowFoundList] = useState(false);
@@ -79,10 +82,12 @@ const MapScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {/* Título y resumen */}
-      <View style={styles.headerBox}>
-        <Text style={styles.title}>Mapa de perros perdidos y encontrados</Text>
-        <Text style={styles.subtitle}>
+      {/* Header elegante con saludo dinámico */}
+      {/* TODO: Reemplaza 'userName' por el nombre real del usuario desde tu sistema de autenticación */}
+      <View style={styles.headerElegant}>
+        <Text style={styles.greetingTextElegant}>¡Hola, {userName}!</Text>
+        <Text style={styles.titleElegant}>Mapa de perros perdidos y encontrados</Text>
+        <Text style={styles.subtitleElegant}>
           {dummyLostDogs.length} perdidos · {dummyFoundDogs.length} encontrados
         </Text>
       </View>
@@ -141,23 +146,23 @@ const MapScreen = ({ navigation }) => {
             <Text style={styles.modalTitle}>Perros perdidos</Text>
             <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
               {dummyLostDogs.map(dog => (
-  <TouchableOpacity
-    key={dog.id}
-    onPress={() => navigation.navigate('LostDogDetailScreen', { dogId: dog.id })}
-    activeOpacity={0.8}
-  >
-    <View style={styles.cardLost}>
-      {dog.images && dog.images[0] && (
-        <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
-      )}
-      <View style={styles.cardTextContainer}> 
-        <Text style={styles.cardTitle}>{dog.name}</Text>
-        <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-        <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
-      </View>
-    </View>
-  </TouchableOpacity>
-))}
+                <TouchableOpacity
+                  key={dog.id}
+                  onPress={() => navigation.navigate('LostDogDetailScreen', { dogId: dog.id })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cardLost}>
+                    {dog.images && dog.images[0] && (
+                      <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                    )}
+                    <View style={styles.cardTextContainer}> 
+                      <Text style={styles.cardTitle}>{dog.name}</Text>
+                      <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                      <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLostList(false)}>
               <Text style={styles.closeBtnText}>Cerrar</Text>
@@ -173,23 +178,23 @@ const MapScreen = ({ navigation }) => {
             <Text style={styles.modalTitle}>Perros encontrados</Text>
             <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
               {dummyFoundDogs.map(dog => (
-  <TouchableOpacity
-    key={dog.id}
-    onPress={() => navigation.navigate('FoundDogDetailScreen', { dogId: dog.id })}
-    activeOpacity={0.8}
-  >
-    <View style={styles.cardFound}>
-      {dog.images && dog.images[0] && (
-        <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
-      )}
-      <View style={styles.cardTextContainer}> 
-        <Text style={styles.cardTitle}>{dog.name}</Text>
-        <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-        <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
-      </View>
-    </View>
-  </TouchableOpacity>
-))}
+                <TouchableOpacity
+                  key={dog.id}
+                  onPress={() => navigation.navigate('FoundDogDetailScreen', { dogId: dog.id })}
+                  activeOpacity={0.8}
+                >
+                  <View style={styles.cardFound}>
+                    {dog.images && dog.images[0] && (
+                      <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                    )}
+                    <View style={styles.cardTextContainer}> 
+                      <Text style={styles.cardTitle}>{dog.name}</Text>
+                      <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                      <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              ))}
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowFoundList(false)}>
               <Text style={styles.closeBtnText}>Cerrar</Text>
@@ -211,24 +216,45 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#fff',
   },
-  headerBox: {
+  // --- Header elegante ---
+  headerElegant: {
     backgroundColor: '#fff',
-    paddingTop: 16,
-    paddingBottom: 4,
+    paddingTop: 38,
+    paddingBottom: 18,
+    paddingHorizontal: 20,
     alignItems: 'center',
-    zIndex: 2,
+    borderBottomLeftRadius: 24,
+    borderBottomRightRadius: 24,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 6,
+    marginBottom: 6,
   },
-  title: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 2,
-    color: '#222',
-  },
-  subtitle: {
-    fontSize: 14,
-    color: '#666',
+  greetingTextElegant: {
+    fontSize: 22,
+    fontWeight: '700',
+    color: '#2a2a2a',
     marginBottom: 4,
+    letterSpacing: 0.2,
   },
+  titleElegant: {
+    fontSize: 17,
+    fontWeight: '600',
+    color: '#222',
+    marginBottom: 2,
+    textAlign: 'center',
+    letterSpacing: 0.1,
+  },
+  subtitleElegant: {
+    fontSize: 13,
+    color: '#888',
+    marginBottom: 0,
+    textAlign: 'center',
+    fontWeight: '400',
+  },
+  // --- Fin header elegante ---
   map: {
     flex: 1,
   },

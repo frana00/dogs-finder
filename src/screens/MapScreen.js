@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Marker } from 'react-native-maps';
-import { dummyLostDogs, dummyFoundDogs } from '../../data/dummyData'; // Import dog data
+import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
 
 const MapScreen = () => {
   const [location, setLocation] = useState(null);

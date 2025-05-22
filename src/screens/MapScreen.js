@@ -209,7 +209,12 @@ const MapScreen = ({ navigation }) => {
             {dummyLostDogs.map(dog => (
               <TouchableOpacity
                 key={dog.id}
-                onPress={() => navigation.navigate('LostDogDetailScreen', { dogId: dog.id })}
+                onPress={() => {
+                  setShowLostList(false);
+                  setTimeout(() => {
+                    navigation.navigate('LostDogDetailScreen', { dogId: dog.id });
+                  }, 250); // Espera breve para animación de cierre
+                }}
                 activeOpacity={0.8}
               >
                 <View style={styles.cardLost}>
@@ -246,7 +251,12 @@ const MapScreen = ({ navigation }) => {
             {dummyFoundDogs.map(dog => (
               <TouchableOpacity
                 key={dog.id}
-                onPress={() => navigation.navigate('FoundDogDetailScreen', { dogId: dog.id })}
+                onPress={() => {
+                  setShowFoundList(false);
+                  setTimeout(() => {
+                    navigation.navigate('FoundDogDetailScreen', { dogId: dog.id });
+                  }, 250);
+                }}
                 activeOpacity={0.8}
               >
                 <View style={styles.cardFound}>

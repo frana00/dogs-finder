@@ -17,6 +17,9 @@ import ImageViewing from 'react-native-image-viewing';
 import { useRoute } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 
+// Importar datos de perros encontrados
+import { dummyFoundDogs } from '../../data/dummyData';
+
 // Datos por defecto (sin cambios)
 const defaultDogData = { /* ... */ };
 const chipStatusLabel = { si: 'Sí', no: 'No', no_sabe: 'No sabe' };
@@ -31,7 +34,9 @@ const FOUND_DOG_COLOR_BORDER = '#C8E6C9'; // Verde pálido para bordes
 
 const FoundDogDetailScreen = ({ navigation }) => {
   const route = useRoute();
-  const dogData = route.params?.dog || defaultDogData;
+  const { dogId } = route.params; // Obtener dogId
+  const dogData = dummyFoundDogs.find(dog => dog.id === dogId) || defaultDogData; // Buscar el perro por ID
+
   const images = Array.isArray(dogData.images) ? dogData.images : [];
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImageIdx, setSelectedImageIdx] = useState(0);

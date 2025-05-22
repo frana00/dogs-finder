@@ -20,6 +20,9 @@ import ImageViewing from 'react-native-image-viewing';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import * as ImagePicker from 'expo-image-picker';
 
+// Importar datos de perros perdidos
+import { dummyLostDogs } from '../../data/dummyData';
+
 // --- Colores Naranja para Perdidos ---
 const LOST_DOG_COLOR = '#FF9800';
 const LOST_DOG_COLOR_LIGHT = '#FFF3E0';
@@ -28,7 +31,8 @@ const LOST_DOG_COLOR_BORDER = '#FFE0B2';
 
 const LostDogDetailScreen = ({ navigation }) => {
   const route = useRoute();
-  const dogData = route.params?.dog;
+  const { dogId } = route.params; // Obtener dogId
+  const dogData = dummyLostDogs.find(dog => dog.id === dogId); // Buscar el perro por ID
 
   // Estados para imágenes y modal
   const [modalVisible, setModalVisible] = useState(false);

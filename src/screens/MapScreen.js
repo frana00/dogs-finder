@@ -4,7 +4,7 @@ import * as Location from 'expo-location';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
 
-const MapScreen = () => {
+const MapScreen = ({ navigation }) => {
   const [showLostList, setShowLostList] = useState(false);
   const [showFoundList, setShowFoundList] = useState(false);
   const [location, setLocation] = useState(null);
@@ -141,17 +141,23 @@ const MapScreen = () => {
             <Text style={styles.modalTitle}>Perros perdidos</Text>
             <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
               {dummyLostDogs.map(dog => (
-                <View key={dog.id} style={styles.cardLost}>
-                  {dog.images && dog.images[0] && (
-                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
-                  )}
-                  <View style={styles.cardTextContainer}> 
-                    <Text style={styles.cardTitle}>{dog.name}</Text>
-                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                    <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
-                  </View>
-                </View>
-              ))}
+  <TouchableOpacity
+    key={dog.id}
+    onPress={() => navigation.navigate('LostDogDetailScreen', { dogId: dog.id })}
+    activeOpacity={0.8}
+  >
+    <View style={styles.cardLost}>
+      {dog.images && dog.images[0] && (
+        <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+      )}
+      <View style={styles.cardTextContainer}> 
+        <Text style={styles.cardTitle}>{dog.name}</Text>
+        <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+        <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+))}
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLostList(false)}>
               <Text style={styles.closeBtnText}>Cerrar</Text>
@@ -167,17 +173,23 @@ const MapScreen = () => {
             <Text style={styles.modalTitle}>Perros encontrados</Text>
             <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
               {dummyFoundDogs.map(dog => (
-                <View key={dog.id} style={styles.cardFound}>
-                  {dog.images && dog.images[0] && (
-                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
-                  )}
-                  <View style={styles.cardTextContainer}> 
-                    <Text style={styles.cardTitle}>{dog.name}</Text>
-                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                    <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
-                  </View>
-                </View>
-              ))}
+  <TouchableOpacity
+    key={dog.id}
+    onPress={() => navigation.navigate('FoundDogDetailScreen', { dogId: dog.id })}
+    activeOpacity={0.8}
+  >
+    <View style={styles.cardFound}>
+      {dog.images && dog.images[0] && (
+        <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+      )}
+      <View style={styles.cardTextContainer}> 
+        <Text style={styles.cardTitle}>{dog.name}</Text>
+        <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+        <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
+      </View>
+    </View>
+  </TouchableOpacity>
+))}
             </ScrollView>
             <TouchableOpacity style={styles.closeBtn} onPress={() => setShowFoundList(false)}>
               <Text style={styles.closeBtnText}>Cerrar</Text>

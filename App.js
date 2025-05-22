@@ -11,7 +11,7 @@ import { AlertProvider } from './src/context/AlertContext';
 
 // Importar stacks de navegación
 import AuthStack from './src/navigation/AuthStack';
-import AppStack from './src/navigation/AppStack';
+import RootStackNavigator from './src/navigation/RootStackNavigator';
 
 // Componente para manejar la navegación basada en autenticación
 const Navigation = () => {
@@ -30,7 +30,7 @@ const Navigation = () => {
     );
   }
 
-  return isAuthenticated ? <AppStack /> : <AuthStack />;
+  return isAuthenticated ? <RootStackNavigator /> : <AuthStack />;
 };
 
 export default function App() {

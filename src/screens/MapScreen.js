@@ -4,7 +4,11 @@ import * as Location from 'expo-location';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
 
+import { TouchableOpacity, ScrollView } from 'react-native';
+
 const MapScreen = () => {
+  const [showLostList, setShowLostList] = useState(false);
+  const [showFoundList, setShowFoundList] = useState(false);
   const [location, setLocation] = useState(null);
   const [errorMsg, setErrorMsg] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -121,10 +125,57 @@ const MapScreen = () => {
           </Marker>
         ))}
       </MapView>
-      {/* Botón flotante para ver lista (solo UI) */}
-      <View style={styles.fabBox}>
-        <Text style={styles.fabText}>Ver lista</Text>
+      {/* Botones flotantes para ver perdidos/encontrados */}
+      <View style={styles.fabContainer}>
+        <TouchableOpacity style={styles.fabLost} onPress={() => setShowLostList(true)}>
+          <Text style={styles.fabText}>Ver perdidos</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.fabFound} onPress={() => setShowFoundList(true)}>
+          <Text style={styles.fabText}>Ver encontrados</Text>
+        </TouchableOpacity>
       </View>
+
+      {/* Modal lista perdidos */}
+      {showLostList && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Perros perdidos</Text>
+            <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
+              {dummyLostDogs.map(dog => (
+                <View key={dog.id} style={styles.cardLost}>
+                  <Text style={styles.cardTitle}>{dog.name}</Text>
+                  <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                  <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLostList(false)}>
+              <Text style={styles.closeBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      {/* Modal lista encontrados */}
+      {showFoundList && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalBox}>
+            <View style={styles.modalHandle} />
+            <Text style={styles.modalTitle}>Perros encontrados</Text>
+            <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
+              {dummyFoundDogs.map(dog => (
+                <View key={dog.id} style={styles.cardFound}>
+                  <Text style={styles.cardTitle}>{dog.breed}</Text>
+                  <Text style={styles.cardText}>¿Reconoces este perro?</Text>
+                </View>
+              ))}
+            </ScrollView>
+            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowFoundList(false)}>
+              <Text style={styles.closeBtnText}>Cerrar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
       {errorMsg && !loading && (
         <Text style={styles.errorToast}>
           {errorMsg}. Mostrando región por defecto.
@@ -160,25 +211,40 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
-  fabBox: {
+  fabContainer: {
     position: 'absolute',
     bottom: 32,
-    right: 24,
+    right: 24, // Asegurar que esté a la derecha
+    flexDirection: 'row', // Para alinear botones horizontalmente
+    gap: 12, // Espacio entre botones
+    zIndex: 10, // Encima del mapa
+  },
+  fabLost: {
     backgroundColor: '#ff9800',
-    borderRadius: 24,
+    borderRadius: 28,
     paddingHorizontal: 18,
-    paddingVertical: 10,
-    elevation: 3,
+    paddingVertical: 12,
+    elevation: 4,
     shadowColor: '#000',
     shadowOpacity: 0.2,
-    shadowOffset: { width: 2, height: 2 },
-    shadowRadius: 4,
-    zIndex: 10,
+    shadowOffset: { width: 1, height: 2 },
+    shadowRadius: 3,
+  },
+  fabFound: {
+    backgroundColor: '#4caf50',
+    borderRadius: 28,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOpacity: 0.2,
+    shadowOffset: { width: 1, height: 2 },
+    shadowRadius: 3,
   },
   fabText: {
     color: '#fff',
     fontWeight: 'bold',
-    fontSize: 16,
+    fontSize: 15,
   },
   calloutBoxLost: {
     backgroundColor: '#fff3e0',
@@ -202,6 +268,89 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     marginBottom: 2,
     color: '#222',
+  },
+  // Estilos del Modal y Tarjetas
+  modalOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.3)', // Fondo semitransparente
+    justifyContent: 'flex-end',
+    zIndex: 1000, // Muy alto para estar encima de todo
+  },
+  modalBox: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingTop: 12, // Espacio para el handle
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    minHeight: 250,
+    maxHeight: '65%', // Altura máxima del modal
+    shadowColor: '#000',
+    shadowOpacity: 0.15,
+    shadowOffset: { width: 0, height: -3 },
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalHandle: {
+    width: 45,
+    height: 5,
+    borderRadius: 2.5,
+    backgroundColor: '#d0d0d0', // Color del handle
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    marginBottom: 15,
+    color: '#333',
+    textAlign: 'center',
+  },
+  cardLost: {
+    backgroundColor: '#fff8e1',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderColor: '#ffe0b2',
+    borderWidth: 1,
+  },
+  cardFound: {
+    backgroundColor: '#e8f5e9',
+    borderRadius: 10,
+    padding: 14,
+    marginBottom: 12,
+    borderColor: '#c8e6c9',
+    borderWidth: 1,
+  },
+  cardTitle: {
+    fontWeight: 'bold',
+    fontSize: 16,
+    marginBottom: 4,
+    color: '#424242',
+  },
+  cardText: {
+    fontSize: 14,
+    color: '#616161',
+    marginBottom: 2,
+    lineHeight: 20,
+  },
+  closeBtn: {
+    marginTop: 15,
+    backgroundColor: '#607d8b', // Un color neutro para cerrar
+    paddingHorizontal: 20,
+    paddingVertical: 10,
+    alignSelf: 'center',
+    borderRadius: 25,
+    elevation: 2,
+  },
+  closeBtnText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 15,
   },
   centered: {
     flex: 1,

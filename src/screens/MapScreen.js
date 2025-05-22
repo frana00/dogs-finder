@@ -7,7 +7,22 @@ import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog
 // TODO: Reemplaza esta variable por el valor real del usuario logueado desde contexto, props, redux, etc.
 const userName = 'Fran';
 
+import { useRef } from 'react';
+
 const MapScreen = ({ navigation }) => {
+  const mapRef = useRef(null);
+
+  // Centrar mapa en ubicación actual
+  const centerMapOnUser = () => {
+    if (location && location.coords && mapRef.current) {
+      mapRef.current.animateToRegion({
+        latitude: location.coords.latitude,
+        longitude: location.coords.longitude,
+        latitudeDelta: 0.02,
+        longitudeDelta: 0.02,
+      }, 800);
+    }
+  }
   const [showLostList, setShowLostList] = useState(false);
   const [showFoundList, setShowFoundList] = useState(false);
   const [location, setLocation] = useState(null);
@@ -91,50 +106,59 @@ const MapScreen = ({ navigation }) => {
           {dummyLostDogs.length} perdidos · {dummyFoundDogs.length} encontrados
         </Text>
       </View>
-      <MapView
-        style={styles.map}
-        initialRegion={getInitialRegion()}
-        showsUserLocation={true}
-      >
-        {/* Markers para perros perdidos */}
-        {dummyLostDogs.map(dog => (
-          <Marker
-            key={dog.id}
-            coordinate={dog.coordinates}
-            pinColor="orange"
-          >
-            <Callout tooltip>
-              <View style={styles.calloutBoxLost}>
-                <Text style={styles.calloutTitle}>{dog.name} (Perdido)</Text>
-                <Text>Raza: {dog.breed}</Text>
-                <Text>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-        {/* Markers para perros encontrados */}
-        {dummyFoundDogs.map(dog => (
-          <Marker
-            key={dog.id}
-            coordinate={dog.coordinates}
-            pinColor="green"
-          >
-            <Callout tooltip>
-              <View style={styles.calloutBoxFound}>
-                <Text style={styles.calloutTitle}>{dog.breed} (Encontrado)</Text>
-                <Text>¿Reconoces este perro?</Text>
-              </View>
-            </Callout>
-          </Marker>
-        ))}
-      </MapView>
-      {/* Botones flotantes para ver perdidos/encontrados */}
-      <View style={styles.fabContainer}>
-        <TouchableOpacity style={styles.fabLost} onPress={() => setShowLostList(true)}>
-          <Text style={styles.fabText}>Ver perdidos</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.fabFound} onPress={() => setShowFoundList(true)}>
-          <Text style={styles.fabText}>Ver encontrados</Text>
+      <View style={styles.mapAreaContainer}>
+        <MapView
+          ref={mapRef}
+          style={styles.map}
+          initialRegion={getInitialRegion()}
+          showsUserLocation={true}
+        >
+          {/* Markers para perros perdidos */}
+          {dummyLostDogs.map(dog => (
+            <Marker
+              key={dog.id}
+              coordinate={dog.coordinates}
+              pinColor="orange"
+            >
+              <Callout tooltip>
+                <View style={styles.calloutBoxLost}>
+                  <Text style={styles.calloutTitle}>{dog.name} (Perdido)</Text>
+                  <Text>Raza: {dog.breed}</Text>
+                  <Text>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+          {/* Markers para perros encontrados */}
+          {dummyFoundDogs.map(dog => (
+            <Marker
+              key={dog.id}
+              coordinate={dog.coordinates}
+              pinColor="green"
+            >
+              <Callout tooltip>
+                <View style={styles.calloutBoxFound}>
+                  <Text style={styles.calloutTitle}>{dog.breed} (Encontrado)</Text>
+                  <Text>¿Reconoces este perro?</Text>
+                </View>
+              </Callout>
+            </Marker>
+          ))}
+        </MapView>
+        {/* FABs para ver perdidos/encontrados (dentro del mapa) */}
+        <View style={styles.fabContainer}>
+          <TouchableOpacity style={styles.fabLost} onPress={() => setShowLostList(true)}>
+            <Text style={styles.fabText}>Ver perdidos</Text>
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.fabFound} onPress={() => setShowFoundList(true)}>
+            <Text style={styles.fabText}>Ver encontrados</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+      {/* Botón para ubicación actual (fuera del mapa) */}
+      <View style={styles.locationBtnContainer}>
+        <TouchableOpacity style={styles.locationBtn} onPress={centerMapOnUser} activeOpacity={0.85}>
+          <Text style={styles.locationBtnText}>📍 Estoy aquí</Text>
         </TouchableOpacity>
       </View>
 
@@ -257,6 +281,35 @@ const styles = StyleSheet.create({
   // --- Fin header elegante ---
   map: {
     flex: 1,
+  },
+  mapAreaContainer: {
+    flex: 1, // This will take the available space for the map and its overlays
+    position: 'relative', // Ensures it's a positioning context for fabContainer
+  },
+  locationBtnContainer: {
+    width: '100%',
+    alignItems: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+  },
+  locationBtn: {
+    backgroundColor: '#fff',
+    borderRadius: 28,
+    paddingHorizontal: 26,
+    paddingVertical: 13,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.13,
+    shadowRadius: 6,
+    elevation: 5,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  locationBtnText: {
+    color: '#00796b',
+    fontWeight: 'bold',
+    fontSize: 16,
+    letterSpacing: 0.1,
   },
   fabContainer: {
     position: 'absolute',

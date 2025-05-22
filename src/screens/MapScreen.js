@@ -1,10 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Text, View, StyleSheet, ActivityIndicator } from 'react-native';
+import { Text, View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image } from 'react-native';
 import * as Location from 'expo-location';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
-
-import { TouchableOpacity, ScrollView } from 'react-native';
 
 const MapScreen = () => {
   const [showLostList, setShowLostList] = useState(false);
@@ -144,9 +142,14 @@ const MapScreen = () => {
             <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
               {dummyLostDogs.map(dog => (
                 <View key={dog.id} style={styles.cardLost}>
-                  <Text style={styles.cardTitle}>{dog.name}</Text>
-                  <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                  <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                  {dog.images && dog.images[0] && (
+                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                  )}
+                  <View style={styles.cardTextContainer}> 
+                    <Text style={styles.cardTitle}>{dog.name}</Text>
+                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                    <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -165,8 +168,14 @@ const MapScreen = () => {
             <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
               {dummyFoundDogs.map(dog => (
                 <View key={dog.id} style={styles.cardFound}>
-                  <Text style={styles.cardTitle}>{dog.breed}</Text>
-                  <Text style={styles.cardText}>¿Reconoces este perro?</Text>
+                  {dog.images && dog.images[0] && (
+                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                  )}
+                  <View style={styles.cardTextContainer}> 
+                    <Text style={styles.cardTitle}>{dog.name}</Text>
+                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                    <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
+                  </View>
                 </View>
               ))}
             </ScrollView>
@@ -214,10 +223,10 @@ const styles = StyleSheet.create({
   fabContainer: {
     position: 'absolute',
     bottom: 32,
-    right: 24, // Asegurar que esté a la derecha
-    flexDirection: 'row', // Para alinear botones horizontalmente
-    gap: 12, // Espacio entre botones
-    zIndex: 10, // Encima del mapa
+    right: 24, 
+    flexDirection: 'row', 
+    gap: 12, 
+    zIndex: 10, 
   },
   fabLost: {
     backgroundColor: '#ff9800',
@@ -269,26 +278,25 @@ const styles = StyleSheet.create({
     marginBottom: 2,
     color: '#222',
   },
-  // Estilos del Modal y Tarjetas
   modalOverlay: {
     position: 'absolute',
     top: 0,
     left: 0,
     right: 0,
     bottom: 0,
-    backgroundColor: 'rgba(0,0,0,0.3)', // Fondo semitransparente
+    backgroundColor: 'rgba(0,0,0,0.3)', 
     justifyContent: 'flex-end',
-    zIndex: 1000, // Muy alto para estar encima de todo
+    zIndex: 1000, 
   },
   modalBox: {
     backgroundColor: '#fff',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingTop: 12, // Espacio para el handle
+    paddingTop: 12, 
     paddingHorizontal: 20,
     paddingBottom: 20,
     minHeight: 250,
-    maxHeight: '65%', // Altura máxima del modal
+    maxHeight: '65%', 
     shadowColor: '#000',
     shadowOpacity: 0.15,
     shadowOffset: { width: 0, height: -3 },
@@ -299,7 +307,7 @@ const styles = StyleSheet.create({
     width: 45,
     height: 5,
     borderRadius: 2.5,
-    backgroundColor: '#d0d0d0', // Color del handle
+    backgroundColor: '#d0d0d0', 
     alignSelf: 'center',
     marginBottom: 12,
   },
@@ -317,6 +325,8 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderColor: '#ffe0b2',
     borderWidth: 1,
+    flexDirection: 'row', 
+    alignItems: 'center', 
   },
   cardFound: {
     backgroundColor: '#e8f5e9',
@@ -325,6 +335,17 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderColor: '#c8e6c9',
     borderWidth: 1,
+    flexDirection: 'row', 
+    alignItems: 'center', 
+  },
+  cardImage: { 
+    width: 60,
+    height: 60,
+    borderRadius: 8,
+    marginRight: 12,
+  },
+  cardTextContainer: { 
+    flex: 1, 
   },
   cardTitle: {
     fontWeight: 'bold',
@@ -340,7 +361,7 @@ const styles = StyleSheet.create({
   },
   closeBtn: {
     marginTop: 15,
-    backgroundColor: '#607d8b', // Un color neutro para cerrar
+    backgroundColor: '#607d8b', 
     paddingHorizontal: 20,
     paddingVertical: 10,
     alignSelf: 'center',

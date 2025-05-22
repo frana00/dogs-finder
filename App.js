@@ -33,7 +33,21 @@ const Navigation = () => {
   return isAuthenticated ? <RootStackNavigator /> : <AuthStack />;
 };
 
+import { Platform, Text } from 'react-native';
+
 export default function App() {
+  if (Platform.OS === 'web') {
+    return (
+      <View style={{flex:1, justifyContent:'center', alignItems:'center', backgroundColor:'#fffbe6', height:'100vh', width:'100vw'}}>
+        <Text style={{fontSize:28, fontWeight:'bold', marginBottom:16, color:'#ff9800', textAlign:'center'}}>
+          ¡Solo disponible en móvil!
+        </Text>
+        <Text style={{fontSize:18, color:'#333', textAlign:'center', maxWidth:400}}>
+          Descarga la app desde la App Store o Google Play para usar todas las funciones.
+        </Text>
+      </View>
+    );
+  }
   return (
     <SafeAreaProvider>
       <StatusBar style="auto" />

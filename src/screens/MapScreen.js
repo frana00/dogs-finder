@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Text, View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, Platform } from 'react-native';
+import Modal from 'react-native-modal';
 import * as Location from 'expo-location';
 import MapView, { Marker, Callout } from 'react-native-maps';
 import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
@@ -193,69 +194,79 @@ const MapScreen = ({ navigation }) => {
       </View>
 
       {/* Modal lista perdidos */}
-      {showLostList && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Perros perdidos</Text>
-            <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
-              {dummyLostDogs.map(dog => (
-                <TouchableOpacity
-                  key={dog.id}
-                  onPress={() => navigation.navigate('LostDogDetailScreen', { dogId: dog.id })}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.cardLost}>
-                    {dog.images && dog.images[0] && (
-                      <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
-                    )}
-                    <View style={styles.cardTextContainer}> 
-                      <Text style={styles.cardTitle}>{dog.name}</Text>
-                      <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                      <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
-                    </View>
+      <Modal
+        isVisible={showLostList}
+        onBackdropPress={() => setShowLostList(false)}
+        swipeDirection="down"
+        onSwipeComplete={() => setShowLostList(false)}
+        style={{justifyContent: 'flex-end', margin: 0}}
+        backdropTransitionOutTiming={0}
+      >
+        <View style={styles.modalBox}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>Perros perdidos</Text>
+          <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
+            {dummyLostDogs.map(dog => (
+              <TouchableOpacity
+                key={dog.id}
+                onPress={() => navigation.navigate('LostDogDetailScreen', { dogId: dog.id })}
+                activeOpacity={0.8}
+              >
+                <View style={styles.cardLost}>
+                  {dog.images && dog.images[0] && (
+                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                  )}
+                  <View style={styles.cardTextContainer}> 
+                    <Text style={styles.cardTitle}>{dog.name}</Text>
+                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                    <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
                   </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLostList(false)}>
-              <Text style={styles.closeBtnText}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={styles.closeBtn} onPress={() => setShowLostList(false)}>
+            <Text style={styles.closeBtnText}>Cerrar</Text>
+          </TouchableOpacity>
         </View>
-      )}
+      </Modal>
       {/* Modal lista encontrados */}
-      {showFoundList && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalBox}>
-            <View style={styles.modalHandle} />
-            <Text style={styles.modalTitle}>Perros encontrados</Text>
-            <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
-              {dummyFoundDogs.map(dog => (
-                <TouchableOpacity
-                  key={dog.id}
-                  onPress={() => navigation.navigate('FoundDogDetailScreen', { dogId: dog.id })}
-                  activeOpacity={0.8}
-                >
-                  <View style={styles.cardFound}>
-                    {dog.images && dog.images[0] && (
-                      <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
-                    )}
-                    <View style={styles.cardTextContainer}> 
-                      <Text style={styles.cardTitle}>{dog.name}</Text>
-                      <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                      <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
-                    </View>
+      <Modal
+        isVisible={showFoundList}
+        onBackdropPress={() => setShowFoundList(false)}
+        swipeDirection="down"
+        onSwipeComplete={() => setShowFoundList(false)}
+        style={{justifyContent: 'flex-end', margin: 0}}
+        backdropTransitionOutTiming={0}
+      >
+        <View style={styles.modalBox}>
+          <View style={styles.modalHandle} />
+          <Text style={styles.modalTitle}>Perros encontrados</Text>
+          <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
+            {dummyFoundDogs.map(dog => (
+              <TouchableOpacity
+                key={dog.id}
+                onPress={() => navigation.navigate('FoundDogDetailScreen', { dogId: dog.id })}
+                activeOpacity={0.8}
+              >
+                <View style={styles.cardFound}>
+                  {dog.images && dog.images[0] && (
+                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                  )}
+                  <View style={styles.cardTextContainer}> 
+                    <Text style={styles.cardTitle}>{dog.name}</Text>
+                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
+                    <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
                   </View>
-                </TouchableOpacity>
-              ))}
-            </ScrollView>
-            <TouchableOpacity style={styles.closeBtn} onPress={() => setShowFoundList(false)}>
-              <Text style={styles.closeBtnText}>Cerrar</Text>
-            </TouchableOpacity>
-          </View>
+                </View>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <TouchableOpacity style={styles.closeBtn} onPress={() => setShowFoundList(false)}>
+            <Text style={styles.closeBtnText}>Cerrar</Text>
+          </TouchableOpacity>
         </View>
-      )}
+      </Modal>
       {errorMsg && !loading && (
         <Text style={styles.errorToast}>
           {errorMsg}. Mostrando región por defecto.

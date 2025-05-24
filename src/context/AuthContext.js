@@ -2,6 +2,7 @@ import { createContext, useState, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiService from '../services/apiService';
+import { login as dummyLogin, register as dummyRegister, getCurrentUser as getDummyCurrentUser } from '../data/dummyData';
 
 export const AuthContext = createContext();
 
@@ -62,6 +63,16 @@ export const AuthProvider = ({ children }) => {
       return { success: true };
     } catch (error) {
       console.error('Error en login:', error);
+      
+      // Si es un error de red, intentar login local
+      if (error.message === 'Network request failed' || 
+          error.message.includes('network') || 
+          error.message.includes('fetch')) {
+        
+        console.log('Backend no disponible, intentando login local');
+        return await loginLocalFallback(email, password);
+      }
+      
       let errorMessage = 'Error al iniciar sesión';
       
       if (error.message === 'TOKEN_EXPIRED') {
@@ -83,6 +94,40 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Función de fallback para login local
+  const loginLocalFallback = async (email, password) => {
+    try {
+      const user = dummyLogin(email, password);
+      
+      if (!user) {
+        Alert.alert('Error', 'Usuario o contraseña incorrectos');
+        return { success: false, error: 'Usuario o contraseña incorrectos' };
+      }
+
+      // Simular token
+      const token = `local_token_${Date.now()}`;
+
+      // Guardar en AsyncStorage
+      await AsyncStorage.setItem('userToken', token);
+      await AsyncStorage.setItem('userData', JSON.stringify(user));
+
+      setToken(token);
+      setUser(user);
+      setIsAuthenticated(true);
+
+      Alert.alert(
+        'Login Local', 
+        'Backend no disponible. Has iniciado sesión localmente.'
+      );
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error en login local:', error);
+      Alert.alert('Error', 'Usuario o contraseña incorrectos');
+      return { success: false, error: 'Usuario o contraseña incorrectos' };
+    }
+  };
+
   const register = async (userData) => {
     setLoading(true);
     try {
@@ -97,6 +142,16 @@ export const AuthProvider = ({ children }) => {
       return { success: true, user: response.user || userData };
     } catch (error) {
       console.error('Error en registro:', error);
+      
+      // Si es un error de red, usar fallback local
+      if (error.message === 'Network request failed' || 
+          error.message.includes('network') || 
+          error.message.includes('fetch')) {
+        
+        console.log('Backend no disponible, usando registro local');
+        return await registerLocalFallback(userData);
+      }
+      
       let errorMessage = 'Error al registrar usuario';
       
       if (error.message.includes('409')) {
@@ -113,6 +168,37 @@ export const AuthProvider = ({ children }) => {
       return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Función de fallback para registro local
+  const registerLocalFallback = async (userData) => {
+    try {
+      // Usar la función de registro dummy
+      const newUser = dummyRegister(userData);
+
+      // Simular token
+      const token = `local_token_${Date.now()}`;
+
+      // Guardar en AsyncStorage
+      await AsyncStorage.setItem('userToken', token);
+      await AsyncStorage.setItem('userData', JSON.stringify(newUser));
+
+      setToken(token);
+      setUser(newUser);
+      setIsAuthenticated(true);
+
+      Alert.alert(
+        'Registro Local', 
+        'Backend no disponible. Tu cuenta se ha creado localmente y se sincronizará cuando se restablezca la conexión.'
+      );
+
+      return { success: true, user: newUser };
+    } catch (error) {
+      console.error('Error en registro local:', error);
+      const errorMessage = error.message || 'No se pudo completar el registro';
+      Alert.alert('Error', errorMessage);
+      return { success: false, error: errorMessage };
     }
   };
 

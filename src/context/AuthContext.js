@@ -1,8 +1,7 @@
 import { createContext, useState, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { API_CONFIG } from '../config/api';
-import { login as dummyLogin } from '../data/dummyData';
+import apiService from '../services/apiService';
 
 export const AuthContext = createContext();
 
@@ -22,71 +21,96 @@ export const AuthProvider = ({ children }) => {
         setToken(storedToken);
         setUser(JSON.parse(storedUser));
         setIsAuthenticated(true);
+        
+        // Opcional: Verificar que el token sigue siendo válido
+        try {
+          const profile = await apiService.getProfile();
+          setUser(profile);
+        } catch (error) {
+          // Si el token no es válido, limpiar datos
+          if (error.message === 'TOKEN_EXPIRED') {
+            await logout();
+          }
+        }
       }
     } catch (error) {
       console.error('Error al verificar autenticación:', error);
     }
   }, []);
 
-  // URL base del backend - importada desde la configuración
-  const API_BASE_URL = API_CONFIG.BASE_URL;
-
   const login = async (email, password) => {
-  setLoading(true);
-  try {
-    if (!email || !password) {
-      throw new Error('Por favor ingresa tu correo y contraseña');
+    setLoading(true);
+    try {
+      if (!email || !password) {
+        throw new Error('Por favor ingresa tu correo y contraseña');
+      }
+
+      const response = await apiService.login(email, password);
+      
+      if (!response.token || !response.user) {
+        throw new Error('Respuesta inválida del servidor');
+      }
+
+      // Guardar en AsyncStorage
+      await AsyncStorage.setItem('userToken', response.token);
+      await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+
+      setToken(response.token);
+      setUser(response.user);
+      setIsAuthenticated(true);
+
+      return { success: true };
+    } catch (error) {
+      console.error('Error en login:', error);
+      let errorMessage = 'Error al iniciar sesión';
+      
+      if (error.message === 'TOKEN_EXPIRED') {
+        errorMessage = 'Sesión expirada, por favor inicia sesión nuevamente';
+      } else if (error.message.includes('401')) {
+        errorMessage = 'Usuario o contraseña incorrectos';
+      } else if (error.message.includes('400')) {
+        errorMessage = 'Datos inválidos';
+      } else if (error.message.includes('500')) {
+        errorMessage = 'Error del servidor, intenta más tarde';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
     }
-
-    // Usar el login real de los datos ficticios
-    const user = dummyLogin(email, password);
-
-    if (!user) {
-      throw new Error('Usuario o contraseña incorrectos');
-    }
-
-    // Simular un token
-    const mockToken = 'mock-jwt-token-' + Date.now();
-
-    // Guardar en AsyncStorage
-    await AsyncStorage.setItem('userToken', mockToken);
-    await AsyncStorage.setItem('userData', JSON.stringify(user));
-
-    setToken(mockToken);
-    setUser(user);
-    setIsAuthenticated(true);
-
-    return { success: true };
-  } catch (error) {
-    Alert.alert('Error', error.message || 'Error al iniciar sesión');
-    return { success: false, error: error.message };
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   const register = async (userData) => {
     setLoading(true);
     try {
-      console.log('Registrando usuario:', userData);
+      const response = await apiService.register(userData);
       
-      // Simular un retraso de red
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Después del registro exitoso, iniciar sesión automáticamente
+      if (response.success) {
+        const loginResult = await login(userData.email, userData.password);
+        return loginResult;
+      }
       
-      // Simular registro exitoso
-      console.log('Usuario registrado exitosamente:', userData);
-      
-      // Iniciar sesión automáticamente después del registro
-      const loginResult = await login(userData.email, userData.password);
-      
-      return { 
-        success: loginResult.success,
-        user: userData 
-      };
+      return { success: true, user: response.user || userData };
     } catch (error) {
       console.error('Error en registro:', error);
-      Alert.alert('Error', error.message || 'Error al registrar usuario');
-      return { success: false, error: error.message };
+      let errorMessage = 'Error al registrar usuario';
+      
+      if (error.message.includes('409')) {
+        errorMessage = 'Este email ya está registrado';
+      } else if (error.message.includes('400')) {
+        errorMessage = 'Datos inválidos';
+      } else if (error.message.includes('500')) {
+        errorMessage = 'Error del servidor, intenta más tarde';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+      return { success: false, error: errorMessage };
     } finally {
       setLoading(false);
     }
@@ -105,6 +129,35 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
+  // Método para actualizar el perfil del usuario
+  const updateProfile = async (userData) => {
+    setLoading(true);
+    try {
+      const updatedUser = await apiService.updateProfile(userData);
+      
+      // Actualizar datos locales
+      await AsyncStorage.setItem('userData', JSON.stringify(updatedUser));
+      setUser(updatedUser);
+      
+      return { success: true, user: updatedUser };
+    } catch (error) {
+      console.error('Error al actualizar perfil:', error);
+      let errorMessage = 'Error al actualizar perfil';
+      
+      if (error.message === 'TOKEN_EXPIRED') {
+        await logout();
+        errorMessage = 'Sesión expirada, por favor inicia sesión nuevamente';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      
+      Alert.alert('Error', errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <AuthContext.Provider
       value={{
@@ -116,6 +169,7 @@ export const AuthProvider = ({ children }) => {
         register,
         logout,
         checkAuth,
+        updateProfile,
       }}
     >
       {children}

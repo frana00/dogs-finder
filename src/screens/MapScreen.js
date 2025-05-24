@@ -1,17 +1,22 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useContext } from 'react';
 import { Text, View, StyleSheet, ActivityIndicator, TouchableOpacity, ScrollView, Image, Platform } from 'react-native';
 import Modal from 'react-native-modal';
 import * as Location from 'expo-location';
 import MapView, { Marker, Callout } from 'react-native-maps';
-import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData'; // Import dog data
-
-// TODO: Reemplaza esta variable por el valor real del usuario logueado desde contexto, props, redux, etc.
-const userName = 'Fran';
-
-import { useRef } from 'react';
+import { useAlerts } from '../context/AlertContext';
+import { AuthContext } from '../context/AuthContext';
 
 const MapScreen = ({ navigation }) => {
   const mapRef = useRef(null);
+  const { lostDogs, foundDogs, loading: alertsLoading } = useAlerts();
+  const { user } = useContext(AuthContext);
+  
+  // Estados para modales y ubicación
+  const [showLostList, setShowLostList] = useState(false);
+  const [showFoundList, setShowFoundList] = useState(false);
+  const [location, setLocation] = useState(null);
+  const [errorMsg, setErrorMsg] = useState(null);
+  const [loading, setLoading] = useState(true);
 
   // Centrar mapa en ubicación actual
   const centerMapOnUser = () => {
@@ -23,12 +28,27 @@ const MapScreen = ({ navigation }) => {
         longitudeDelta: 0.02,
       }, 800);
     }
-  }
-  const [showLostList, setShowLostList] = useState(false);
-  const [showFoundList, setShowFoundList] = useState(false);
-  const [location, setLocation] = useState(null);
-  const [errorMsg, setErrorMsg] = useState(null);
-  const [loading, setLoading] = useState(true);
+  };
+
+  // Convertir alertas a formato para marcadores del mapa
+  const convertAlertsToMarkers = (alerts, type) => {
+    return alerts.filter(alert => alert.latitude && alert.longitude).map(alert => ({
+      id: alert.id,
+      title: alert.title,
+      breed: alert.breed,
+      date: alert.date,
+      description: alert.description,
+      photoFilenames: alert.photoFilenames,
+      coordinates: {
+        latitude: parseFloat(alert.latitude),
+        longitude: parseFloat(alert.longitude)
+      },
+      type
+    }));
+  };
+
+  const lostMarkers = convertAlertsToMarkers(lostDogs, 'lost');
+  const foundMarkers = convertAlertsToMarkers(foundDogs, 'found');
 
   useEffect(() => {
     (async () => {
@@ -74,11 +94,11 @@ const MapScreen = ({ navigation }) => {
     return defaultRegion;
   };
 
-  if (loading) {
+  if (loading || alertsLoading) {
     return (
       <View style={styles.centered}>
-        <ActivityIndicator size="large" />
-        <Text>Loading map...</Text>
+        <ActivityIndicator size="large" color="#FF9800" />
+        <Text>Cargando mapa y alertas...</Text>
       </View>
     );
   }
@@ -118,12 +138,11 @@ const MapScreen = ({ navigation }) => {
       {/* Debug Info - Only visible in development */}
 
       {/* Header elegante con saludo dinámico */}
-      {/* TODO: Reemplaza 'userName' por el nombre real del usuario desde tu sistema de autenticación */}
       <View style={styles.headerElegant}>
-        <Text style={styles.greetingTextElegant}>¡Hola, {userName}!</Text>
+        <Text style={styles.greetingTextElegant}>¡Hola, {user?.firstName || 'Usuario'}!</Text>
         <Text style={styles.titleElegant}>Mapa de perros perdidos y encontrados</Text>
         <Text style={styles.subtitleElegant}>
-          {dummyLostDogs.length} perdidos · {dummyFoundDogs.length} encontrados
+          {lostDogs.length} perdidos · {foundDogs.length} encontrados
         </Text>
       </View>
       {/* Container for MapView and its absolute positioned FABs, or fallback for web */}
@@ -143,32 +162,33 @@ const MapScreen = ({ navigation }) => {
               showsUserLocation={true}
             >
               {/* Markers para perros perdidos */}
-              {dummyLostDogs.map(dog => (
+              {lostMarkers.map(marker => (
                 <Marker
-                  key={dog.id}
-                  coordinate={dog.coordinates}
+                  key={`lost-${marker.id}`}
+                  coordinate={marker.coordinates}
                   pinColor="orange"
                 >
                   <Callout tooltip>
                     <View style={styles.calloutBoxLost}>
-                      <Text style={styles.calloutTitle}>{dog.name} (Perdido)</Text>
-                      <Text>Raza: {dog.breed}</Text>
-                      <Text>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                      <Text style={styles.calloutTitle}>{marker.title} (Perdido)</Text>
+                      <Text>Raza: {marker.breed || 'No especificada'}</Text>
+                      <Text>Fecha: {new Date(marker.date).toLocaleDateString()}</Text>
                     </View>
                   </Callout>
                 </Marker>
               ))}
               {/* Markers para perros encontrados */}
-              {dummyFoundDogs.map(dog => (
+              {foundMarkers.map(marker => (
                 <Marker
-                  key={dog.id}
-                  coordinate={dog.coordinates}
+                  key={`found-${marker.id}`}
+                  coordinate={marker.coordinates}
                   pinColor="green"
                 >
                   <Callout tooltip>
                     <View style={styles.calloutBoxFound}>
-                      <Text style={styles.calloutTitle}>{dog.breed} (Encontrado)</Text>
-                      <Text>¿Reconoces este perro?</Text>
+                      <Text style={styles.calloutTitle}>{marker.title} (Encontrado)</Text>
+                      <Text>Raza: {marker.breed || 'No especificada'}</Text>
+                      <Text>Fecha: {new Date(marker.date).toLocaleDateString()}</Text>
                     </View>
                   </Callout>
                 </Marker>
@@ -206,25 +226,25 @@ const MapScreen = ({ navigation }) => {
           <View style={styles.modalHandle} />
           <Text style={styles.modalTitle}>Perros perdidos</Text>
           <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
-            {dummyLostDogs.map(dog => (
+            {lostDogs.map(alert => (
               <TouchableOpacity
-                key={dog.id}
+                key={alert.id}
                 onPress={() => {
                   setShowLostList(false);
                   setTimeout(() => {
-                    navigation.navigate('LostDogDetailScreen', { dogId: dog.id });
+                    navigation.navigate('LostDogDetailScreen', { dog: alert });
                   }, 250); // Espera breve para animación de cierre
                 }}
                 activeOpacity={0.8}
               >
                 <View style={styles.cardLost}>
-                  {dog.images && dog.images[0] && (
-                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                  {alert.photoFilenames && alert.photoFilenames[0] && (
+                    <Image source={{ uri: alert.photoFilenames[0] }} style={styles.cardImage} />
                   )}
                   <View style={styles.cardTextContainer}> 
-                    <Text style={styles.cardTitle}>{dog.name}</Text>
-                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                    <Text style={styles.cardText}>Última vez visto: {dog.lastSeen || 'N/D'}</Text>
+                    <Text style={styles.cardTitle}>{alert.title}</Text>
+                    <Text style={styles.cardText}>Raza: {alert.breed || 'No especificada'}</Text>
+                    <Text style={styles.cardText}>Fecha: {new Date(alert.date).toLocaleDateString()}</Text>
                   </View>
                 </View>
               </TouchableOpacity>
@@ -248,25 +268,25 @@ const MapScreen = ({ navigation }) => {
           <View style={styles.modalHandle} />
           <Text style={styles.modalTitle}>Perros encontrados</Text>
           <ScrollView style={{marginTop: 10}} showsVerticalScrollIndicator={false}>
-            {dummyFoundDogs.map(dog => (
+            {foundDogs.map(alert => (
               <TouchableOpacity
-                key={dog.id}
+                key={alert.id}
                 onPress={() => {
                   setShowFoundList(false);
                   setTimeout(() => {
-                    navigation.navigate('FoundDogDetailScreen', { dogId: dog.id });
+                    navigation.navigate('FoundDogDetailScreen', { dog: alert });
                   }, 250);
                 }}
                 activeOpacity={0.8}
               >
                 <View style={styles.cardFound}>
-                  {dog.images && dog.images[0] && (
-                    <Image source={{ uri: dog.images[0] }} style={styles.cardImage} />
+                  {alert.photoFilenames && alert.photoFilenames[0] && (
+                    <Image source={{ uri: alert.photoFilenames[0] }} style={styles.cardImage} />
                   )}
                   <View style={styles.cardTextContainer}> 
-                    <Text style={styles.cardTitle}>{dog.name}</Text>
-                    <Text style={styles.cardText}>Raza: {dog.breed}</Text>
-                    <Text style={styles.cardText}>Encontrado: {dog.date || 'N/D'}</Text>
+                    <Text style={styles.cardTitle}>{alert.title}</Text>
+                    <Text style={styles.cardText}>Raza: {alert.breed || 'No especificada'}</Text>
+                    <Text style={styles.cardText}>Encontrado: {new Date(alert.date).toLocaleDateString()}</Text>
                   </View>
                 </View>
               </TouchableOpacity>

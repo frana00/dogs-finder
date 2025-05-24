@@ -1,38 +1,45 @@
-// src/screens/LostDogs/LostDogsListScreen.js
-// (Este es el código correcto que te di en la respuesta ANTERIOR)
-
-import React from 'react';
-import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image } from 'react-native'; // Asegúrate que Image esté importado
+import React, { useEffect, useContext } from 'react';
+import { StyleSheet, View, Text, FlatList, TouchableOpacity, Image, ActivityIndicator, RefreshControl } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useNavigation } from '@react-navigation/native';
-import { dummyLostDogs } from '../../data/dummyData'; // <--- IMPORTANTE: Importa desde dummyData
-
-// NO debe existir la constante DUMMY_DATA aquí dentro
+import { useAlerts } from '../../context/AlertContext';
+import LoadingScreen from '../../components/LoadingScreen';
+import ErrorHandler from '../../components/ErrorHandler';
+import { EmptyLostDogs } from '../../components/EmptyState';
 
 const LostDogsListScreen = () => {
   const navigation = useNavigation();
+  const { lostDogs, loading, error, fetchLostDogs } = useAlerts();
+
+  useEffect(() => {
+    fetchLostDogs();
+  }, [fetchLostDogs]);
+
+  const handleRefresh = () => {
+    fetchLostDogs();
+  };
 
   const renderDogItem = ({ item }) => (
     <TouchableOpacity
       style={styles.dogCard}
-      onPress={() => navigation.navigate('LostDogDetail', { dog: item })} // Navega con el 'dog' completo
+      onPress={() => navigation.navigate('LostDogDetail', { dog: item })}
     >
       <View style={styles.dogIconContainer}>
         {/* Muestra la imagen si existe, si no, el icono */}
-        {item.images && item.images.length > 0 ? (
-           <Image source={{ uri: item.images[0] }} style={styles.dogImagePreview} />
+        {item.photoFilenames && item.photoFilenames.length > 0 ? (
+           <Image source={{ uri: item.photoFilenames[0] }} style={styles.dogImagePreview} />
         ) : (
            <Ionicons name="paw-outline" size={30} color="#FF9800" />
         )}
       </View>
       <View style={styles.dogInfo}>
-        <Text style={styles.dogName}>{item.name}</Text>
-        <Text style={styles.dogBreed}>{item.breed}</Text>
+        <Text style={styles.dogName}>{item.title}</Text>
+        <Text style={styles.dogBreed}>{item.breed || 'Raza no especificada'}</Text>
         <Text style={styles.dogLocation}>
-          <Ionicons name="location-outline" size={14} color="#666" /> {item.location}
+          <Ionicons name="location-outline" size={14} color="#666" /> {item.location || 'Ubicación no especificada'}
         </Text>
         <Text style={styles.dogDate}>
-          <Ionicons name="calendar-outline" size={14} color="#666" /> {item.date}
+          <Ionicons name="calendar-outline" size={14} color="#666" /> {new Date(item.date).toLocaleDateString()}
         </Text>
       </View>
       <Ionicons name="chevron-forward" size={24} color="#ccc" />
@@ -41,12 +48,34 @@ const LostDogsListScreen = () => {
 
   return (
     <View style={styles.container}>
-      <FlatList
-        data={dummyLostDogs} // <--- IMPORTANTE: Usa los datos importados
-        renderItem={renderDogItem}
-        keyExtractor={item => item.id}
-        contentContainerStyle={styles.listContent}
-      />
+      {loading && lostDogs.length === 0 ? (
+        <LoadingScreen message="Cargando alertas de perros perdidos..." color="#FF9800" />
+      ) : error ? (
+        <ErrorHandler 
+          error={error} 
+          onRetry={handleRefresh}
+          message="Error al cargar las alertas de perros perdidos"
+        />
+      ) : lostDogs.length === 0 ? (
+        <EmptyLostDogs 
+          onCreateAlert={() => navigation.navigate('CreateAlert')}
+        />
+      ) : (
+        <FlatList
+          data={lostDogs}
+          renderItem={renderDogItem}
+          keyExtractor={item => item.id.toString()}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl
+              refreshing={loading}
+              onRefresh={handleRefresh}
+              colors={['#FF9800']}
+              tintColor="#FF9800"
+            />
+          }
+        />
+      )}
       <TouchableOpacity
         style={styles.addButton}
         onPress={() => navigation.navigate('CreateAlert')}

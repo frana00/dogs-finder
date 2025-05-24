@@ -1,27 +1,24 @@
-// src/screens/LostDogs/LostDogDetailScreen.js
-// VERSIÓN FINAL CON BOTÓN CONTACTAR MOVIDO
-
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   StyleSheet,
   View,
   Text,
   Image,
-  ScrollView, // Se reemplaza por KeyboardAwareScrollView
+  ScrollView,
   TouchableOpacity,
   Dimensions,
   TextInput,
   Keyboard,
-  Platform
+  Platform,
+  ActivityIndicator,
+  Alert,
+  Modal
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
-import ImageViewing from 'react-native-image-viewing';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import * as ImagePicker from 'expo-image-picker';
-
-// Importar datos de perros perdidos
-import { dummyLostDogs } from '../../data/dummyData';
+import { useAlerts } from '../../context/AlertContext';
 
 // --- Colores Naranja para Perdidos ---
 const LOST_DOG_COLOR = '#FF9800';
@@ -31,24 +28,47 @@ const LOST_DOG_COLOR_BORDER = '#FFE0B2';
 
 const LostDogDetailScreen = ({ navigation }) => {
   const route = useRoute();
-  const { dogId } = route.params; // Obtener dogId
-  const dogData = dummyLostDogs.find(dog => dog.id === dogId); // Buscar el perro por ID
+  const { dog } = route.params; // Obtener el objeto dog completo
+  const { getAlert } = useAlerts();
+  
+  // Estados para los datos de la alerta
+  const [dogData, setDogData] = useState(dog);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
   // Estados para imágenes y modal
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const images = Array.isArray(dogData?.images) ? dogData.images.map(uri => ({ uri })) : [];
+  const images = Array.isArray(dogData?.photoFilenames) ? dogData.photoFilenames.map(uri => ({ uri })) : [];
   const screenWidth = Dimensions.get('window').width;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   // Estados y Ref para Comentarios
-  const [posts, setPosts] = useState([
-      { id: 'l1', user: 'Vecino Solidario', text: 'Lo vi cerca de la plaza ayer en la tarde!', date: '2025-04-19 18:30', image: null },
-      { id: 'l2', user: 'Ana M.', text: '¿Tiene alguna marca particular?', date: '2025-04-20 09:15', image: null },
-  ]);
+  const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState('');
   const [newPostImage, setNewPostImage] = useState(null);
   const scrollRef = useRef(null);
+
+  // Cargar datos completos de la alerta si es necesario
+  useEffect(() => {
+    if (dogData && dogData.id && !dogData.fullDataLoaded) {
+      loadFullAlertData();
+    }
+  }, [dogData]);
+
+  const loadFullAlertData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fullAlert = await getAlert(dogData.id);
+      setDogData({ ...fullAlert, fullDataLoaded: true });
+    } catch (err) {
+      console.error('Error loading full alert data:', err);
+      setError('No se pudieron cargar los detalles completos de la alerta');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Manejador de error si no hay dogData
   if (!dogData) {
@@ -139,22 +159,70 @@ const LostDogDetailScreen = ({ navigation }) => {
       </View>
 
       {/* --- Visor de Imágenes --- */}
-      <ImageViewing
-         images={images}
-         imageIndex={selectedImageIndex}
-         visible={modalVisible}
-         onRequestClose={() => setModalVisible(false)}
-         FooterComponent={({ imageIndex }) => (
-            <View style={styles.imageViewerFooter}>
-              <Text style={styles.imageViewerFooterText}>{`${imageIndex + 1} / ${images.length}`}</Text>
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.modalCloseArea} 
+            onPress={() => setModalVisible(false)}
+          >
+            <View style={styles.modalImageContainer}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={30} color="white" />
+              </TouchableOpacity>
+              
+              {images.length > 0 && (
+                <>
+                  <Image
+                    source={{ uri: images[selectedImageIndex]?.uri || images[selectedImageIndex] }}
+                    style={styles.modalImage}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.imageCounter}>
+                    <Text style={styles.imageCounterText}>
+                      {selectedImageIndex + 1} / {images.length}
+                    </Text>
+                  </View>
+                  
+                  {images.length > 1 && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.navButton, styles.prevButton]}
+                        onPress={() => setSelectedImageIndex((prev) => 
+                          prev > 0 ? prev - 1 : images.length - 1
+                        )}
+                      >
+                        <Ionicons name="chevron-back" size={30} color="white" />
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[styles.navButton, styles.nextButton]}
+                        onPress={() => setSelectedImageIndex((prev) => 
+                          prev < images.length - 1 ? prev + 1 : 0
+                        )}
+                      >
+                        <Ionicons name="chevron-forward" size={30} color="white" />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
+              )}
             </View>
-          )}
-       />
+          </TouchableOpacity>
+        </View>
+      </Modal>
 
       {/* --- Detalles del Perro --- */}
       <View style={styles.detailsContainer}>
-        <Text style={styles.dogName}>{dogData.name}</Text>
-        <Text style={styles.dogBreed}>{dogData.breed}</Text>
+        <Text style={styles.dogName}>{dogData.title}</Text>
+        <Text style={styles.dogBreed}>{dogData.breed || 'Raza no especificada'}</Text>
 
         <View style={styles.detailItem}>
           <Ionicons name="location-outline" size={20} color={LOST_DOG_COLOR} style={styles.icon} />
@@ -163,7 +231,7 @@ const LostDogDetailScreen = ({ navigation }) => {
 
         <View style={styles.detailItem}>
           <Ionicons name="calendar-outline" size={20} color={LOST_DOG_COLOR} style={styles.icon} />
-          <Text style={styles.detailText}>Perdido el: {dogData.date || 'Fecha no especificada'}</Text>
+          <Text style={styles.detailText}>Perdido el: {new Date(dogData.date).toLocaleDateString()}</Text>
         </View>
 
         <View style={styles.detailItem}>
@@ -171,51 +239,34 @@ const LostDogDetailScreen = ({ navigation }) => {
           <Text style={styles.detailText}>{dogData.description || 'Sin descripción adicional.'}</Text>
         </View>
 
-         {dogData.chip && typeof dogData.chip === 'string' && dogData.chip.trim() !== '' && dogData.chip.toLowerCase() !== 'no' && (
+         {dogData.chipNumber && (
              <View style={styles.detailItem}>
                  <Ionicons name="hardware-chip-outline" size={20} color={LOST_DOG_COLOR} style={styles.icon} />
-                 <Text style={styles.detailText}>Chip: {dogData.chip}</Text>
+                 <Text style={styles.detailText}>Chip: {dogData.chipNumber}</Text>
+             </View>
+         )}
+
+         {dogData.username && (
+             <View style={styles.detailItem}>
+                 <Ionicons name="person-outline" size={20} color={LOST_DOG_COLOR} style={styles.icon} />
+                 <Text style={styles.detailText}>Reportado por: {dogData.username}</Text>
              </View>
          )}
       </View>
 
-      {/* --- Sección de Contacto --- */}
-       {dogData.contact && (
-            <View style={styles.contactSection}>
-                 <Text style={styles.sectionTitle}>Información de Contacto</Text>
-                 <View style={styles.detailItem}>
-                    <Ionicons name="person-outline" size={20} color="#4CAF50" style={styles.icon} />
-                    <Text style={styles.detailText}>{dogData.contact.name}</Text>
-                 </View>
-                 {dogData.contact.phone && (
-                    <View style={styles.detailItem}>
-                        <Ionicons name="call-outline" size={20} color="#4CAF50" style={styles.icon} />
-                        <TouchableOpacity onPress={() => {/* Implementar llamada */}}>
-                        <Text style={[styles.detailText, styles.linkText]}>{dogData.contact.phone}</Text>
-                        </TouchableOpacity>
-                    </View>
-                 )}
-                  {dogData.contact.email && (
-                     <View style={styles.detailItem}>
-                        <Ionicons name="mail-outline" size={20} color="#4CAF50" style={styles.icon} />
-                        <TouchableOpacity onPress={() => {/* Implementar envío de mail */}}>
-                           <Text style={[styles.detailText, styles.linkText]}>{dogData.contact.email}</Text>
-                        </TouchableOpacity>
-                     </View>
-                  )}
-            </View>
-        )}
-      {/* --- FIN Sección de Contacto --- */}
 
-      {/* --- Botón Contactar (NUEVA POSICIÓN) --- */}
-       <TouchableOpacity style={styles.contactButton} onPress={() => navigation.navigate('ContactOwner', { dog: dogData })}>
+
+      {/* --- Botón Contactar --- */}
+      <TouchableOpacity style={styles.contactButton} onPress={() => navigation.navigate('Chat', { alertId: dogData.id, alertTitle: dogData.title })}>
         <Text style={styles.contactButtonText}>Contactar al Dueño</Text>
       </TouchableOpacity>
-      {/* --------------------------------------- */}
 
       {/* --- Sección de Comentarios --- */}
       <View style={styles.postsSection}>
           <Text style={styles.sectionTitleLost}>Comentarios y Avistamientos</Text>
+          <Text style={styles.commentsNote}>
+            Los comentarios y el sistema de chat estarán disponibles próximamente.
+          </Text>
           <View style={styles.postsList}>
             {posts.length === 0 && ( <Text style={styles.noPostsText}>Aún no hay comentarios.</Text> )}
             {posts.map(post => (
@@ -283,6 +334,7 @@ const styles = StyleSheet.create({
     detailText: { fontSize: 16, color: '#444', flex: 1, lineHeight: 22 },
     contactSection: { marginTop: 10, marginBottom: 20, padding: 15, backgroundColor: '#f7f7f7', borderRadius: 8, borderWidth: 1, borderColor: '#e0e0e0', marginHorizontal: 20 },
     sectionTitle: { fontSize: 18, fontWeight: '600', color: '#333', marginBottom: 15, borderBottomWidth: 1, borderBottomColor: '#ddd', paddingBottom: 8 },
+    commentsNote: { fontSize: 14, color: '#666', fontStyle: 'italic', marginBottom: 15, paddingHorizontal: 10, textAlign: 'center' },
     linkText: { color: '#007AFF', textDecorationLine: 'underline' },
     contactButton: { backgroundColor: LOST_DOG_COLOR, borderRadius: 8, paddingVertical: 16, marginHorizontal: 20, marginTop: 0, marginBottom: 25, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 3 }, // Ajustado marginTop y marginBottom
     contactButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
@@ -306,7 +358,69 @@ const styles = StyleSheet.create({
     addPostButton: { backgroundColor: LOST_DOG_COLOR, borderRadius: 20, padding: 10, marginBottom: Platform.OS === 'ios' ? 0 : 2 },
     addPostButtonDisabled: { backgroundColor: '#FFCC80' },
     backButtonError: { marginTop: 20, backgroundColor: '#ccc', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5 },
-    backButtonTextError: { color: '#333', fontWeight: 'bold' }
+    backButtonTextError: { color: '#333', fontWeight: 'bold' },
+    
+    // Estilos para el Modal personalizado
+    modalContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalCloseArea: {
+      flex: 1,
+      width: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
+    },
+    modalImageContainer: {
+      width: '90%',
+      height: '80%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    modalImage: {
+      width: '100%',
+      height: '100%',
+    },
+    closeButton: {
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      zIndex: 10,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 20,
+      padding: 8,
+    },
+    imageCounter: {
+      position: 'absolute',
+      bottom: 20,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 16,
+    },
+    imageCounterText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    navButton: {
+      position: 'absolute',
+      top: '50%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 25,
+      padding: 10,
+      zIndex: 10,
+    },
+    prevButton: {
+      left: 20,
+    },
+    nextButton: {
+      right: 20,
+    },
 });
 
 export default LostDogDetailScreen;

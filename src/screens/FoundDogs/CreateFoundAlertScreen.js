@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useContext } from 'react';
 import Constants from 'expo-constants';
 import {
   View,
@@ -18,8 +18,11 @@ import {
 import { GooglePlacesAutocomplete } from 'react-native-google-places-autocomplete';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import apiService from '../../services/apiService';
+import { AuthContext } from '../../context/AuthContext';
 
 const FoundDogAlertScreen = ({ navigation }) => {
+  const { user } = useContext(AuthContext);
   const autoCompleteRef = useRef(null);
   const [description, setDescription] = useState('');
   const [location, setLocation] = useState('');
@@ -30,6 +33,7 @@ const FoundDogAlertScreen = ({ navigation }) => {
   const [chipNumber, setChipNumber] = useState('');
   const [dogSafe, setDogSafe] = useState('si'); // 'si', 'no'
   const [notes, setNotes] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
 
   // Usar ubicación actual
   const handleUseCurrentLocation = async () => {
@@ -80,23 +84,102 @@ const FoundDogAlertScreen = ({ navigation }) => {
   };
 
   // Enviar alerta
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!description || !location) {
-      Alert.alert('Completa todos los campos obligatorios');
+      Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: descripción y ubicación.');
       return;
     }
-    // Aquí se podría guardar la alerta en un backend o localmente
-    Alert.alert('Alerta creada', 'Tu alerta ha sido registrada correctamente.', [
-      { text: 'OK', onPress: () => navigation.goBack() }
-    ]);
-    setDescription('');
-    setLocation('');
-    setPhotos([]);
-    setFoundDate(new Date().toISOString().slice(0, 16));
-    setChipStatus('no_sabe');
-    setChipNumber('');
-    setDogSafe('si');
-    setNotes('');
+
+    if (!user || !user.username) {
+      Alert.alert('Error de autenticación', 'Por favor, inicia sesión para crear una alerta.');
+      return;
+    }
+
+    setIsLoading(true);
+
+    try {
+      // Crear la alerta con datos textuales
+      const alertData = {
+        username: user.username,
+        type: 'FOUND',
+        chipNumber: chipStatus === 'si' ? chipNumber : null,
+        status: 'ACTIVE',
+        sex: 'UNKNOWN',
+        date: foundDate,
+        title: 'Perro encontrado',
+        description: description,
+        breed: 'mixed',
+        postalCode: '00000', // Placeholder
+        countryCode: 'CL', // Placeholder
+        // Añadir campos específicos de perros encontrados en las notas
+        notes: notes + (dogSafe === 'no' ? ' | PERRO EN PELIGRO' : ' | PERRO SEGURO'),
+      };
+
+      const createdAlert = await apiService.createAlert(alertData);
+      
+      if (!createdAlert || !createdAlert.id) {
+        throw new Error('No se recibió el ID de la alerta creada');
+      }
+
+      // Subir fotos si hay
+      if (photos.length > 0) {
+        let allPhotosUploadedSuccessfully = true;
+        const uploadErrors = [];
+
+        for (const photoUri of photos) {
+          try {
+            await apiService.uploadPhoto(createdAlert.id, photoUri);
+          } catch (uploadError) {
+            allPhotosUploadedSuccessfully = false;
+            uploadErrors.push(uploadError.message);
+            console.error(`Error subiendo foto ${photoUri}:`, uploadError);
+          }
+        }
+
+        if (!allPhotosUploadedSuccessfully) {
+          Alert.alert(
+            'Subida Incompleta', 
+            `La alerta fue creada pero algunas fotos no pudieron subirse: ${uploadErrors.join(', ')}`,
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+        } else {
+          Alert.alert('Alerta Creada', 'Tu alerta y fotos han sido registradas correctamente.', [
+            { text: 'OK', onPress: () => navigation.goBack() }
+          ]);
+        }
+      } else {
+        // No hay fotos para subir
+        Alert.alert('Alerta Creada', 'Tu alerta ha sido registrada correctamente.', [
+          { text: 'OK', onPress: () => navigation.goBack() }
+        ]);
+      }
+
+      // Limpiar formulario
+      setDescription('');
+      setLocation('');
+      setPhotos([]);
+      setFoundDate(new Date().toISOString().slice(0, 16));
+      setChipStatus('no_sabe');
+      setChipNumber('');
+      setDogSafe('si');
+      setNotes('');
+
+    } catch (error) {
+      console.error('Error en handleSubmit:', error);
+      
+      let errorMessage = 'No se pudo crear la alerta.';
+      if (error.message === 'TOKEN_EXPIRED') {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      Alert.alert('Error', errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
@@ -277,8 +360,13 @@ const FoundDogAlertScreen = ({ navigation }) => {
           style={[styles.button, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
           onPress={handleSubmit}
           activeOpacity={0.8}
+          disabled={isLoading}
         >
-          <Text style={styles.buttonText}>Crear Alerta</Text>
+          {isLoading ? (
+            <ActivityIndicator size="small" color="#fff" />
+          ) : (
+            <Text style={styles.buttonText}>Crear Alerta</Text>
+          )}
         </TouchableOpacity>        </ScrollView>
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>

@@ -7,7 +7,7 @@ import { AuthContext } from '../context/AuthContext';
 const ProfileScreen = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const { user, logout } = useContext(AuthContext);
+  const { user, logout, updateProfile } = useContext(AuthContext);
   
   // Datos del usuario desde el contexto
   const [userData, setUserData] = useState({
@@ -51,33 +51,25 @@ const ProfileScreen = () => {
       Alert.alert('Error', 'Por favor completa los campos obligatorios');
       return;
     }
+
+    // Validación de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(editableData.email)) {
+      Alert.alert('Error', 'Por favor ingresa un email válido');
+      return;
+    }
     
-    setLoading(true);
     try {
-      // Aquí iría la llamada a la API para actualizar los datos del usuario
-      // Ejemplo:
-      // const response = await fetch('http://localhost:8080/api/v1/users/me', {
-      //   method: 'PUT',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //     'Authorization': `Bearer ${token}`
-      //   },
-      //   body: JSON.stringify(editableData)
-      // });
+      const result = await updateProfile(editableData);
       
-      // if (!response.ok) {
-      //   throw new Error('Error al actualizar los datos');
-      // }
-      
-      // Actualizar los datos locales
-      setUserData(editableData);
-      setIsEditing(false);
-      Alert.alert('Éxito', 'Datos actualizados correctamente');
+      if (result.success) {
+        setUserData({...editableData});
+        setIsEditing(false);
+        Alert.alert('Éxito', 'Perfil actualizado correctamente');
+      }
     } catch (error) {
-      console.error('Error al guardar los cambios:', error);
-      Alert.alert('Error', 'No se pudieron guardar los cambios. Inténtalo de nuevo.');
-    } finally {
-      setLoading(false);
+      console.error('Error al guardar perfil:', error);
+      Alert.alert('Error', 'No se pudo actualizar el perfil');
     }
   };
 

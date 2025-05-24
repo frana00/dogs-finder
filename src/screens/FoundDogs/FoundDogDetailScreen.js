@@ -1,78 +1,121 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
-  Dimensions,
-  Platform,
-  Keyboard,
   StyleSheet,
   View,
   Text,
   Image,
+  ScrollView,
   TouchableOpacity,
-  ScrollView, // Para scroll horizontal de imágenes
-  TextInput
+  Dimensions,
+  TextInput,
+  Keyboard,
+  Platform,
+  ActivityIndicator,
+  Alert,
+  Modal
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import ImageViewing from 'react-native-image-viewing';
 import { useRoute } from '@react-navigation/native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
+import * as ImagePicker from 'expo-image-picker';
+import { useAlerts } from '../../context/AlertContext';
 
-// Importar datos de perros encontrados
-import { dummyFoundDogs } from '../../data/dummyData';
-
-// Datos por defecto (sin cambios)
-const defaultDogData = { /* ... */ };
-const chipStatusLabel = { si: 'Sí', no: 'No', no_sabe: 'No sabe' };
-const dogSafeLabel = { si: 'Sí, lo tengo en casa/refugio', no: 'No, sigue en la calle' };
-
-// --- Definir colores del tema ---
-const FOUND_DOG_COLOR = '#4CAF50'; // Verde principal
-const FOUND_DOG_COLOR_DARK = '#388E3C'; // Verde oscuro para textos/énfasis
-const FOUND_DOG_COLOR_LIGHT = '#E8F5E9'; // Verde muy pálido para fondos
-const FOUND_DOG_COLOR_BORDER = '#C8E6C9'; // Verde pálido para bordes
-// -----------------------------
+// --- Colores Verde para Encontrados ---
+const FOUND_DOG_COLOR = '#4CAF50';
+const FOUND_DOG_COLOR_LIGHT = '#E8F5E9';
+const FOUND_DOG_COLOR_BORDER = '#C8E6C9';
+const FOUND_DOG_COLOR_DARK = '#388E3C';
+// -------------------------------------
 
 const FoundDogDetailScreen = ({ navigation }) => {
   const route = useRoute();
-  const { dogId } = route.params; // Obtener dogId
-  const dogData = dummyFoundDogs.find(dog => dog.id === dogId) || defaultDogData; // Buscar el perro por ID
+  const { dog } = route.params; // Obtener el objeto dog completo
+  const { getAlert } = useAlerts();
+  
+  // Estados para los datos de la alerta
+  const [dogData, setDogData] = useState(dog);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
 
-  const images = Array.isArray(dogData.images) ? dogData.images : [];
+  // Estados para imágenes y modal
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedImageIdx, setSelectedImageIdx] = useState(0);
-  const [activeImageIdx, setActiveImageIdx] = useState(0);
+  const [selectedImageIndex, setSelectedImageIndex] = useState(0);
+  const images = Array.isArray(dogData?.photoFilenames) ? dogData.photoFilenames.map(uri => ({ uri })) : [];
   const screenWidth = Dimensions.get('window').width;
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
-  // Estado y Refs para comentarios (sin cambios funcionales)
-  const [posts, setPosts] = useState([
-      { id: 'f1', user: 'Elena', text: '¿Alguien lo reconoce? Está bien cuidado.', date: '2025-04-20 11:00' },
-  ]);
+  // Estados y Ref para Comentarios
+  const [posts, setPosts] = useState([]);
   const [newPost, setNewPost] = useState('');
   const [newPostImage, setNewPostImage] = useState(null);
   const scrollRef = useRef(null);
 
-  // Handlers para comentarios (sin cambios funcionales)
-  const handlePickPostImage = async () => { /* ... */
-        let result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ImagePicker.MediaTypeOptions.Images, allowsEditing: true, aspect: [4, 3], quality: 0.7 });
-        if (!result.canceled && result.assets && result.assets.length > 0) { setNewPostImage(result.assets[0].uri); }
-   };
+  // Cargar datos completos de la alerta si es necesario
+  useEffect(() => {
+    if (dogData && dogData.id && !dogData.fullDataLoaded) {
+      loadFullAlertData();
+    }
+  }, [dogData]);
+
+  const loadFullAlertData = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const fullAlert = await getAlert(dogData.id);
+      setDogData({ ...fullAlert, fullDataLoaded: true });
+    } catch (err) {
+      console.error('Error loading full alert data:', err);
+      setError('No se pudieron cargar los detalles completos de la alerta');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Manejador de error si no hay dogData
+  if (!dogData) {
+    return (
+      <View style={styles.containerCenter}>
+        <Text>No se encontraron datos del perro.</Text>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButtonError}>
+            <Text style={styles.backButtonTextError}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
+    // Handlers para scroll e imágenes de comentarios
+  const handleImageScroll = (event) => {
+      const offsetX = event.nativeEvent.contentOffset.x;
+      if (screenWidth > 0) {
+         const newIndex = Math.round(offsetX / screenWidth);
+         if (newIndex !== activeImageIndex) {
+             setActiveImageIndex(newIndex);
+         }
+      }
+  };
+  const handlePickPostImage = async () => {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        alert('Se necesitan permisos para acceder a la galería.');
+        return;
+      }
+      let result = await ImagePicker.launchImageLibraryAsync({
+          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          allowsEditing: true, aspect: [4, 3], quality: 0.7,
+      });
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+          setNewPostImage(result.assets[0].uri);
+      }
+  };
   const handleRemovePostImage = () => { setNewPostImage(null); };
-  const handleAddPost = () => { /* ... */
+  const handleAddPost = () => {
     if (newPost.trim().length === 0 && !newPostImage) return;
     const now = new Date();
     const fecha = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')} ${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setPosts([...posts, { id: `f${posts.length + 1}`, user: 'Tú', text: newPost, date: fecha, image: newPostImage || null }]);
+    const newPostEntry = { id: `f${posts.length + 1}-${Date.now()}`, user: 'Tú', text: newPost.trim(), date: fecha, image: newPostImage || null };
+    setPosts([...posts, newPostEntry]);
     setNewPost(''); setNewPostImage(null); Keyboard.dismiss();
-    setTimeout(() => { scrollRef.current?.scrollToEnd({ animated: true }); }, 100);
+    setTimeout(() => { scrollRef.current?.scrollToEnd({ animated: true }); }, 150);
   };
-  const handleImageScroll = (event) => { /* Sin cambios funcionales */
-    const offsetX = event.nativeEvent.contentOffset.x;
-    const viewWidth = event.nativeEvent.layoutMeasurement.width;
-    if (viewWidth > 0) {
-       const idx = Math.round(offsetX / viewWidth);
-       if (idx !== activeImageIdx) { setActiveImageIdx(idx); }
-    }
-   };
 
   return (
     <KeyboardAwareScrollView
@@ -84,170 +127,295 @@ const FoundDogDetailScreen = ({ navigation }) => {
       enableOnAndroid={true}
       enableAutomaticScroll={Platform.OS === 'ios'}
     >
-        {/* Carrusel de imágenes */}
-        <View style={styles.header}>
-          {images.length > 0 ? (
-            <>
-              <View style={styles.imageScrollViewContainer}>
-                <ScrollView /* ... */ horizontal pagingEnabled onScroll={handleImageScroll} scrollEventThrottle={16} showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 0 }}>
-                  {images.slice(0, 5).map((img, idx) => (
-                    <TouchableOpacity key={idx} onPress={() => { setSelectedImageIdx(idx); setModalVisible(true); }}>
-                      <Image source={{ uri: img }} style={[styles.dogImage, { width: screenWidth - (styles.scrollContent.paddingHorizontal * 2) }]} resizeMode="cover"/>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-              {images.length > 1 && (
-                <View style={styles.dotsContainer}>
-                  {images.slice(0, 5).map((_, idx) => ( <View key={idx} style={[styles.dot, activeImageIdx === idx && styles.dotActiveFound]}/> ))}
-                </View>
+      {/* --- Carrusel de Imágenes --- */}
+      <View style={styles.header}>
+        {images.length > 0 ? (
+          <>
+            <ScrollView
+                horizontal
+                pagingEnabled
+                onScroll={handleImageScroll}
+                scrollEventThrottle={16}
+                showsHorizontalScrollIndicator={false}
+                style={{ width: screenWidth, height: 280 }}
+                contentContainerStyle={{ alignItems: 'center' }}
+            >
+              {images.map((img, index) => (
+                 <TouchableOpacity
+                    key={index}
+                    onPress={() => { setSelectedImageIndex(index); setModalVisible(true); }}
+                  >
+                    <Image source={img} style={[styles.dogImage, { width: screenWidth }]} resizeMode="cover"/>
+                 </TouchableOpacity>
+              ))}
+            </ScrollView>
+             {images.length > 1 && (
+                 <View style={styles.dotsContainer}>
+                    {images.map((_, idx) => ( <View key={idx} style={[ styles.dot, activeImageIndex === idx && styles.dotActiveFound ]}/> ))}
+                 </View>
+             )}
+          </>
+        ) : ( <View style={styles.noImageContainer}><Ionicons name="paw-outline" size={80} color="#ccc" /><Text style={styles.noImageText}>Sin fotos</Text></View> )}
+      </View>
+
+      {/* --- Visor de Imágenes --- */}
+      <Modal
+        visible={modalVisible}
+        transparent={true}
+        onRequestClose={() => setModalVisible(false)}
+        animationType="fade"
+      >
+        <View style={styles.modalContainer}>
+          <TouchableOpacity 
+            style={styles.modalCloseArea} 
+            onPress={() => setModalVisible(false)}
+          >
+            <View style={styles.modalImageContainer}>
+              <TouchableOpacity 
+                style={styles.closeButton}
+                onPress={() => setModalVisible(false)}
+              >
+                <Ionicons name="close" size={30} color="white" />
+              </TouchableOpacity>
+              
+              {images.length > 0 && (
+                <>
+                  <Image
+                    source={{ uri: images[selectedImageIndex]?.uri || images[selectedImageIndex] }}
+                    style={styles.modalImage}
+                    resizeMode="contain"
+                  />
+                  <View style={styles.imageCounter}>
+                    <Text style={styles.imageCounterText}>
+                      {selectedImageIndex + 1} / {images.length}
+                    </Text>
+                  </View>
+                  
+                  {images.length > 1 && (
+                    <>
+                      <TouchableOpacity
+                        style={[styles.navButton, styles.prevButton]}
+                        onPress={() => setSelectedImageIndex((prev) => 
+                          prev > 0 ? prev - 1 : images.length - 1
+                        )}
+                      >
+                        <Ionicons name="chevron-back" size={30} color="white" />
+                      </TouchableOpacity>
+                      
+                      <TouchableOpacity
+                        style={[styles.navButton, styles.nextButton]}
+                        onPress={() => setSelectedImageIndex((prev) => 
+                          prev < images.length - 1 ? prev + 1 : 0
+                        )}
+                      >
+                        <Ionicons name="chevron-forward" size={30} color="white" />
+                      </TouchableOpacity>
+                    </>
+                  )}
+                </>
               )}
-            </>
-          ) : ( <Ionicons name="image-outline" size={60} color="#cccccc" style={styles.iconPlaceholder} /> )}
+            </View>
+          </TouchableOpacity>
+        </View>
+      </Modal>
+
+      {/* --- Detalles del Perro --- */}
+      <View style={styles.detailsContainer}>
+        <Text style={styles.dogName}>{dogData.title}</Text>
+        <Text style={styles.dogBreed}>{dogData.breed || 'Raza no especificada'}</Text>
+
+        <View style={styles.detailItem}>
+          <Ionicons name="location-outline" size={20} color={FOUND_DOG_COLOR} style={styles.icon} />
+          <Text style={styles.detailText}>{dogData.location || 'Ubicación no especificada'}</Text>
         </View>
 
-        {/* ImageViewing (sin cambios) */}
-        <ImageViewing /* ... */ />
+        <View style={styles.detailItem}>
+          <Ionicons name="calendar-outline" size={20} color={FOUND_DOG_COLOR} style={styles.icon} />
+          <Text style={styles.detailText}>Encontrado el: {new Date(dogData.date).toLocaleDateString()}</Text>
+        </View>
 
-        {/* Detalles del perro encontrado */}
-        <View style={styles.detailsSection}>
-             {/* ... Bloques de datos sin cambios ... */}
-             <View style={styles.section}>
-               <Text style={styles.sectionTitleFound}>Notas adicionales</Text>
-               <Text style={styles.sectionText}>{dogData.notes || 'No especificado'}</Text>
+        <View style={styles.detailItem}>
+          <Ionicons name="information-circle-outline" size={20} color={FOUND_DOG_COLOR} style={styles.icon} />
+          <Text style={styles.detailText}>{dogData.description || 'Sin descripción adicional.'}</Text>
+        </View>
+
+         {dogData.chipNumber && (
+             <View style={styles.detailItem}>
+                 <Ionicons name="hardware-chip-outline" size={20} color={FOUND_DOG_COLOR} style={styles.icon} />
+                 <Text style={styles.detailText}>Chip: {dogData.chipNumber}</Text>
              </View>
-        </View>
+         )}
 
-        {/* Sección de comentarios */}
-        <View style={styles.postsSection}>
-          <Text style={styles.sectionTitleFound}>Comentarios y Contacto</Text>
+         {dogData.username && (
+             <View style={styles.detailItem}>
+                 <Ionicons name="person-outline" size={20} color={FOUND_DOG_COLOR} style={styles.icon} />
+                 <Text style={styles.detailText}>Reportado por: {dogData.username}</Text>
+             </View>
+         )}
+      </View>
+
+      {/* --- Botón Contactar --- */}
+      <TouchableOpacity style={styles.contactButton} onPress={() => navigation.navigate('Chat', { alertId: dogData.id, alertTitle: dogData.title })}>
+        <Text style={styles.contactButtonText}>Contactar al Rescatista</Text>
+      </TouchableOpacity>
+
+      {/* --- Sección de Comentarios --- */}
+      <View style={styles.postsSection}>
+          <Text style={styles.sectionTitleFound}>Comentarios y Avistamientos</Text>
+          <Text style={styles.commentsNote}>
+            Los comentarios y el sistema de chat estarán disponibles próximamente.
+          </Text>
           <View style={styles.postsList}>
             {posts.length === 0 && ( <Text style={styles.noPostsText}>Aún no hay comentarios.</Text> )}
             {posts.map(post => (
-              // --- Aplicar estilo verde a los comentarios ---
               <View key={post.id} style={styles.postItemFound}>
                  <View style={styles.postHeader}>
-                     {/* Icono de persona ahora verde */}
                      <Ionicons name="person-circle" size={22} color={FOUND_DOG_COLOR} style={{ marginRight: 4 }} />
-                     {/* Nombre de usuario ahora verde oscuro */}
                      <Text style={styles.postUserFound}>{post.user}</Text>
                      <Text style={styles.postDate}>{post.date}</Text>
                  </View>
-                 {post.image && ( <Image source={{ uri: post.image }} style={styles.postImage} /> )}
+                 {post.image && ( <TouchableOpacity><Image source={{ uri: post.image }} style={styles.postImage} /></TouchableOpacity> )}
                  <Text style={styles.postText}>{post.text}</Text>
               </View>
-              // --------------------------------------------
             ))}
           </View>
-        </View>
+      </View>
 
-        {/* Barra de input */}
-        <View style={styles.addPostContainer}>
+      {/* --- Barra de Input --- */}
+       <View style={styles.addPostContainer}>
           {newPostImage && (
             <View style={styles.addPostPreviewRow}>
               <Image source={{ uri: newPostImage }} style={styles.addPostPreviewImg} />
-              {/* Botón quitar imagen ahora verde */}
               <TouchableOpacity onPress={handleRemovePostImage} style={styles.addPostRemoveImgBtn}>
                 <Ionicons name="close-circle" size={22} color={FOUND_DOG_COLOR} />
               </TouchableOpacity>
             </View>
           )}
           <View style={styles.addPostBar}>
-            {/* Icono de imagen ahora verde cuando hay imagen */}
             <TouchableOpacity style={styles.addPostImageBtn} onPress={handlePickPostImage}>
               <Ionicons name={newPostImage ? "image" : "image-outline"} size={22} color={newPostImage ? FOUND_DOG_COLOR : "#888"} />
             </TouchableOpacity>
             <TextInput
-              style={styles.addPostInput}
-              value={newPost}
-              onChangeText={setNewPost}
-              placeholder="Escribe un comentario..."
-              multiline
-              maxLength={200}
-            />
-            {/* Botón de enviar ahora verde */}
-            <TouchableOpacity style={styles.addPostButtonFound} onPress={handleAddPost} disabled={newPost.trim().length === 0 && !newPostImage}>
-              <Ionicons name="send" size={22} color="#fff" />
+              style={styles.addPostInput} value={newPost} onChangeText={setNewPost}
+              placeholder="Añade un comentario o avistamiento..." placeholderTextColor="#999"
+              multiline maxLength={250} />
+            <TouchableOpacity style={[styles.addPostButtonFound, !newPost.trim() && !newPostImage && styles.addPostButtonDisabled]} onPress={handleAddPost} disabled={!newPost.trim() && !newPostImage}>
+              <Ionicons name="send" size={20} color="#fff" />
             </TouchableOpacity>
           </View>
         </View>
-
-        {/* Botón Volver (sin cambios) */}
-        <TouchableOpacity style={styles.backButton} onPress={() => navigation.goBack()}>
-            <Ionicons name="arrow-back" size={20} color="#fff" />
-            <Text style={styles.backButtonText}>Volver</Text>
-        </TouchableOpacity>
 
     </KeyboardAwareScrollView>
   );
 };
 
-// --- ESTILOS CON COLORES VERDES AJUSTADOS ---
+// --- Estilos (COMPLETOS) ---
 const styles = StyleSheet.create({
-    // Contenedores principales (sin cambios)
     keyboardAwareContainer: { flex: 1, backgroundColor: '#fff' },
-    scrollContent: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 40, flexGrow: 1 },
-
-    // Carrusel (sin cambios visuales importantes, excepto dot activo)
-    header: { alignItems: 'center', marginBottom: 20 },
-    imageScrollViewContainer: { width: '100%', marginBottom: 10 },
-    dogImage: { height: 280, borderRadius: 12, backgroundColor: '#e0e0e0' },
-    iconPlaceholder: { color: '#cccccc', marginVertical: 60 },
-    dotsContainer: { flexDirection: 'row', justifyContent: 'center', gap: 8, marginTop: 4 },
-    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#d1d1d1' },
-    dotActiveFound: { backgroundColor: FOUND_DOG_COLOR, width: 10, height: 10, borderRadius: 5 }, // Verde
-    modalCloseBtn: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, right: 20, zIndex: 10, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 20, padding: 4 },
-
-    // Detalles (sin cambios visuales importantes)
-    detailsSection: { marginBottom: 20 },
-    dataBlock: { flexDirection: 'row', marginBottom: 10, alignItems: 'flex-start' },
-    label: { fontSize: 15, fontWeight: '600', color: '#444', width: 110, marginRight: 8 },
-    value: { fontSize: 15, color: '#111', flex: 1, lineHeight: 21 },
-    section: { marginTop: 15, marginBottom: 10, paddingVertical: 10, paddingHorizontal: 15, backgroundColor: '#f0f0f0', borderRadius: 8, borderLeftWidth: 4, borderLeftColor: FOUND_DOG_COLOR_BORDER /* Verde pálido */ },
-    sectionText: { fontSize: 15, color: '#333', lineHeight: 22 },
-    sectionTitleFound: { fontSize: 16, fontWeight: 'bold', color: FOUND_DOG_COLOR /* Verde */, marginBottom: 8 },
-
-    // --- Comentarios con tema verde ---
-    postsSection: { marginTop: 15 },
+    scrollContent: { paddingBottom: 10, flexGrow: 1 },
+    container: { flex: 1, backgroundColor: '#fff' },
+    containerCenter: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+    header: { alignItems: 'center', marginBottom: 0, backgroundColor: '#f9f9f9', borderBottomWidth: 1, borderBottomColor: '#eee' },
+    dogImage: { height: 280, backgroundColor: '#e0e0e0' },
+    noImageContainer: { height: 280, width: '100%', justifyContent: 'center', alignItems: 'center', backgroundColor: '#f0f0f0' },
+    noImageText: { marginTop: 10, color: '#aaa', fontSize: 16 },
+    dotsContainer: { flexDirection: 'row', position: 'absolute', bottom: 10, alignSelf: 'center', backgroundColor: 'rgba(0, 0, 0, 0.3)', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 10 },
+    dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: '#ccc', marginHorizontal: 4 },
+    dotActiveFound: { backgroundColor: FOUND_DOG_COLOR },
+    imageViewerFooter: { height: 80, backgroundColor: "rgba(0, 0, 0, 0.7)", alignItems: "center", justifyContent: "center" },
+    imageViewerFooterText: { color: "white", fontSize: 16, fontWeight: "bold" },
+    detailsContainer: { paddingHorizontal: 20, paddingTop: 20, paddingBottom: 15 },
+    dogName: { fontSize: 26, fontWeight: 'bold', color: '#333', marginBottom: 5 },
+    dogBreed: { fontSize: 18, color: '#555', marginBottom: 20 },
+    detailItem: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 15 },
+    icon: { marginRight: 12, marginTop: 2 },
+    detailText: { fontSize: 16, color: '#444', flex: 1, lineHeight: 22 },
+    contactButton: { backgroundColor: FOUND_DOG_COLOR, borderRadius: 8, paddingVertical: 16, marginHorizontal: 20, marginTop: 0, marginBottom: 25, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 3, elevation: 3 },
+    contactButtonText: { color: '#fff', fontSize: 18, fontWeight: 'bold' },
+    postsSection: { marginTop: 0, paddingHorizontal: 20, marginBottom: 10 },
+    sectionTitleFound: { fontSize: 18, fontWeight: '600', color: FOUND_DOG_COLOR, marginBottom: 12, paddingBottom: 5 },
+    commentsNote: { fontSize: 14, color: '#666', fontStyle: 'italic', marginBottom: 15, paddingHorizontal: 10, textAlign: 'center' },
     postsList: { marginTop: 10, gap: 15 },
-    noPostsText: { color: '#888', textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
-    postItemFound: { // Nuevo estilo para comentarios verdes
-        backgroundColor: FOUND_DOG_COLOR_LIGHT, // Verde muy pálido
-        borderRadius: 10,
-        padding: 14,
-        borderWidth: 1,
-        borderColor: FOUND_DOG_COLOR_BORDER, // Borde verde pálido
-    },
+    noPostsText: { color: '#999', textAlign: 'center', paddingVertical: 20, fontStyle: 'italic' },
+    postItemFound: { backgroundColor: FOUND_DOG_COLOR_LIGHT, borderRadius: 10, padding: 14, borderWidth: 1, borderColor: FOUND_DOG_COLOR_BORDER },
     postHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-    postUserFound: { // Nuevo estilo para usuario verde
-        fontWeight: 'bold',
-        color: FOUND_DOG_COLOR_DARK, // Verde oscuro
-        marginRight: 8,
-        fontSize: 15,
+    postUserFound: { fontWeight: 'bold', color: FOUND_DOG_COLOR_DARK, marginRight: 8, fontSize: 15 },
+    postDate: { color: '#757575', fontSize: 12 },
+    postText: { fontSize: 15, color: '#333', lineHeight: 21, marginTop: 4, marginBottom: 6 },
+    postImage: { width: '80%', aspectRatio: 16 / 9, borderRadius: 8, marginTop: 8, marginBottom: 8, alignSelf: 'flex-start', maxHeight: 200, resizeMode: 'cover', borderWidth: 1, borderColor: '#ddd' },
+    addPostContainer: { marginTop: 5, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 15 : 10, borderTopWidth: 1, borderColor: '#e0e0e0', backgroundColor: '#f8f8f8' },
+    addPostPreviewRow: { paddingHorizontal: 12, paddingBottom: 8, flexDirection: 'row', alignItems: 'center' },
+    addPostPreviewImg: { width: 45, height: 45, borderRadius: 4, borderWidth: 1, borderColor: '#ccc' },
+    addPostRemoveImgBtn: { padding: 4, marginLeft: 5 },
+    addPostBar: { flexDirection: 'row', alignItems: 'flex-end', paddingVertical: 5, paddingHorizontal: 12, gap: 10 },
+    addPostImageBtn: { paddingBottom: 8, paddingHorizontal: 6 },
+    addPostInput: { flex: 1, borderWidth: 1, borderColor: '#ccc', borderRadius: 20, paddingHorizontal: 15, paddingTop: Platform.OS === 'ios' ? 10 : 8, paddingBottom: Platform.OS === 'ios' ? 10 : 8, fontSize: 15, backgroundColor: '#fff', maxHeight: 100 },
+    addPostButtonFound: { backgroundColor: FOUND_DOG_COLOR, borderRadius: 20, padding: 10, marginBottom: Platform.OS === 'ios' ? 0 : 2 },
+    addPostButtonDisabled: { backgroundColor: '#A5D6A7' },
+    backButtonError: { marginTop: 20, backgroundColor: '#ccc', paddingVertical: 10, paddingHorizontal: 20, borderRadius: 5 },
+    backButtonTextError: { color: '#333', fontWeight: 'bold' },
+    
+    // Estilos para el Modal personalizado
+    modalContainer: {
+      flex: 1,
+      backgroundColor: 'rgba(0, 0, 0, 0.9)',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
-    postDate: { color: '#757575', fontSize: 12 }, // Gris neutro para fecha
-    postText: { fontSize: 15, color: '#212121', lineHeight: 21, marginBottom: 6 }, // Texto oscuro
-    postImage: { width: '80%', aspectRatio: 4 / 3, borderRadius: 8, marginBottom: 8, alignSelf: 'flex-start', maxHeight: 200, resizeMode: 'cover' },
-    // ---------------------------------
-
-    // --- Barra de Input con tema verde ---
-    addPostContainer: { marginTop: 30, paddingTop: 10, borderTopWidth: 1, borderColor: '#e0e0e0', backgroundColor: '#f5f5f5' },
-    addPostPreviewRow: { paddingHorizontal: 12, paddingBottom: 8, gap: 8, flexDirection: 'row', alignItems: 'center', backgroundColor: '#f8f8f8' },
-    addPostPreviewImg: { width: 40, height: 40, borderRadius: 4 },
-    addPostRemoveImgBtn: { padding: 4 }, // El icono dentro ya tiene color verde
-    addPostBar: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, paddingHorizontal: 12, gap: 10 },
-    addPostImageBtn: { padding: 6 }, // El icono dentro ya tiene color verde condicional
-    addPostInput: { flex: 1, borderWidth: 1, borderColor: '#bdbdbd', borderRadius: 20, paddingHorizontal: 15, paddingVertical: Platform.OS === 'ios' ? 10 : 8, fontSize: 15, backgroundColor: '#fff', minHeight: 40, maxHeight: 100 },
-    addPostButtonFound: { // Nuevo estilo para botón verde
-        backgroundColor: FOUND_DOG_COLOR, // Verde
-        borderRadius: 20,
-        padding: 10,
+    modalCloseArea: {
+      flex: 1,
+      width: '100%',
+      justifyContent: 'center',
+      alignItems: 'center',
     },
-    // -----------------------------------
-
-    // Botón Volver (sin cambios)
-    backButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: FOUND_DOG_COLOR, borderRadius: 20, paddingVertical: 10, paddingHorizontal: 28, alignSelf: 'center', marginTop: 32, marginBottom: 20 },
-    backButtonText: { color: '#fff', fontWeight: 'bold', fontSize: 16, marginLeft: 6 },
+    modalImageContainer: {
+      width: '90%',
+      height: '80%',
+      justifyContent: 'center',
+      alignItems: 'center',
+      position: 'relative',
+    },
+    modalImage: {
+      width: '100%',
+      height: '100%',
+    },
+    closeButton: {
+      position: 'absolute',
+      top: 20,
+      right: 20,
+      zIndex: 10,
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 20,
+      padding: 8,
+    },
+    imageCounter: {
+      position: 'absolute',
+      bottom: 20,
+      alignSelf: 'center',
+      backgroundColor: 'rgba(0, 0, 0, 0.7)',
+      paddingHorizontal: 16,
+      paddingVertical: 8,
+      borderRadius: 16,
+    },
+    imageCounterText: {
+      color: 'white',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    navButton: {
+      position: 'absolute',
+      top: '50%',
+      backgroundColor: 'rgba(0, 0, 0, 0.5)',
+      borderRadius: 25,
+      padding: 10,
+      zIndex: 10,
+    },
+    prevButton: {
+      left: 20,
+    },
+    nextButton: {
+      right: 20,
+    },
 });
 
 export default FoundDogDetailScreen;

@@ -1,4 +1,4 @@
-import SHA256 from 'crypto-js/sha256';
+import { SHA256 } from 'crypto-js';
 
 // --- Usuarios Ficticios (con hashes SHA256 reales de contraseña) ---
 export const dummyUsers = {

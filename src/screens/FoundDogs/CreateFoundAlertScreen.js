@@ -189,7 +189,12 @@ const FoundDogAlertScreen = ({ navigation }) => {
       keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
     >
       <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-        <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 160 }} keyboardShouldPersistTaps="handled">
+        <ScrollView 
+          contentContainerStyle={{ padding: 20, paddingBottom: 160 }} 
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+        >
           <Text style={styles.title}>Perro Encontrado</Text>
         <Text style={styles.subtitle}>
           Completa este formulario para avisar a la comunidad sobre un perro encontrado en la calle.
@@ -253,7 +258,6 @@ const FoundDogAlertScreen = ({ navigation }) => {
           placeholder="Buscar dirección..."
           minLength={3}
           fetchDetails={true}
-          predefinedPlaces={[]}
           onPress={(data, details = null) => {
             if (details && details.formatted_address) {
               setLocation(details.formatted_address);
@@ -270,11 +274,24 @@ const FoundDogAlertScreen = ({ navigation }) => {
           }}
           styles={{
             textInput: styles.input,
+            listView: { 
+              zIndex: 1000,
+              elevation: 1000,
+              position: 'absolute',
+              top: 50,
+              backgroundColor: 'white',
+              borderWidth: 1,
+              borderColor: '#ccc',
+              borderRadius: 8,
+            },
           }}
-          textInputProps={{
-            placeholder: 'Buscar dirección...'
-          }}
+          enablePoweredByContainer={false}
+          debounce={300}
+          listViewDisplayed="auto"
+          keyboardShouldPersistTaps="handled"
+          suppressDefaultStyles={false}
         />
+        <View style={{ height: 60 }} />
         <TouchableOpacity
           style={styles.geoButton}
           onPress={handleUseCurrentLocation}

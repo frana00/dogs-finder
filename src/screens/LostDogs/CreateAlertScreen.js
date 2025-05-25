@@ -218,20 +218,26 @@ const CreateAlertScreen = ({ navigation }) => {
             language: 'es',
             components: 'country:cl',
           }}
-          predefinedPlaces={[]}
           styles={{
             textInput: styles.input,
-            listView: { zIndex: 10 },
+            listView: { 
+              zIndex: 1000,
+              elevation: 1000,
+              position: 'absolute',
+              top: 50,
+              backgroundColor: 'white',
+              borderWidth: 1,
+              borderColor: '#ccc',
+              borderRadius: 8,
+            },
           }}
           enablePoweredByContainer={false}
-          debounce={200}
-          nearbyPlacesAPI="GooglePlacesSearch"
-          textInputProps={{
-            value: location,
-            onChangeText: setLocation,
-            placeholderTextColor: '#aaa',
-          }}
+          debounce={300}
+          listViewDisplayed="auto"
+          keyboardShouldPersistTaps="handled"
+          suppressDefaultStyles={false}
         />
+        <View style={{ height: 60 }} />
         <Text style={styles.label}>Subir fotos (máx 5)</Text>
         <TouchableOpacity
           style={[styles.uploadButton, photos.length >= 5 && { opacity: 0.5 }]}

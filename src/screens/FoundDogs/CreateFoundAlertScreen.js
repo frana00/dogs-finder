@@ -101,7 +101,7 @@ const FoundDogAlertScreen = ({ navigation }) => {
       // Crear la alerta con datos textuales
       const alertData = {
         username: user.username,
-        type: 'FOUND',
+        type: 'SEEN',
         chipNumber: chipStatus === 'si' ? chipNumber : null,
         status: 'ACTIVE',
         sex: 'UNKNOWN',
@@ -109,8 +109,8 @@ const FoundDogAlertScreen = ({ navigation }) => {
         title: 'Perro encontrado',
         description: description,
         breed: 'mixed',
-        postalCode: '00000', // Placeholder
-        countryCode: 'CL', // Placeholder
+        postalCode: '12345', // <-- Cambiado a un código postal válido
+        countryCode: 'CL',
         // Añadir campos específicos de perros encontrados en las notas
         notes: notes + (dogSafe === 'no' ? ' | PERRO EN PELIGRO' : ' | PERRO SEGURO'),
       };

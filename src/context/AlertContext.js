@@ -1,6 +1,5 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import apiService from '../services/apiService';
-import { dummyLostDogs, dummyFoundDogs } from '../data/dummyData';
 
 export const AlertContext = createContext();
 
@@ -10,81 +9,47 @@ export const AlertProvider = ({ children }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  // Helper function to convert dummy data to API format
-  const convertDummyDataToApiFormat = (dummyDogs, type) => {
-    return dummyDogs.map(dog => ({
-      id: dog.id,
-      title: dog.name || `${dog.breed} ${type === 'LOST' ? 'perdido' : 'encontrado'}`,
-      breed: dog.breed,
-      description: dog.description,
-      date: dog.date,
-      latitude: dog.coordinates?.latitude,
-      longitude: dog.coordinates?.longitude,
-      photoFilenames: dog.images,
-      userId: dog.contact?.id,
-      type: type,
-      status: 'ACTIVE',
-      // Additional fields for found dogs
-      chipStatus: dog.chipStatus,
-      dogSafe: dog.dogSafe,
-      notes: dog.notes
-    }));
-  };
-
-  // Helper function to use dummy data as fallback
-  const useDummyDataFallback = useCallback((type) => {
-    console.log(`Using dummy data fallback for ${type} dogs`);
-    if (type === 'LOST') {
-      const convertedData = convertDummyDataToApiFormat(dummyLostDogs, 'LOST');
-      setLostDogs(convertedData);
-      return convertedData;
-    } else {
-      const convertedData = convertDummyDataToApiFormat(dummyFoundDogs, 'FOUND');
-      setFoundDogs(convertedData);
-      return convertedData;
-    }
-  }, []);
-
   // Obtener perros perdidos
   const fetchLostDogs = useCallback(async () => {
+    console.log('🔍 fetchLostDogs: Starting...');
     setLoading(true);
     setError(null);
     try {
       // First try with type filter
       let alerts;
       try {
+        console.log('🔍 fetchLostDogs: Trying with type filter...');
         alerts = await apiService.getAlerts({ type: 'LOST', status: 'ACTIVE' });
+        console.log('✅ fetchLostDogs: Got alerts with type filter:', alerts);
       } catch (typeError) {
-        console.log('Type filter failed, trying without filter:', typeError.message);
+        console.log('⚠️ Type filter failed, trying without filter:', typeError.message);
         // If type filter fails, get all alerts and filter locally
         const allAlerts = await apiService.getAlerts();
+        console.log('🔍 fetchLostDogs: Got all alerts:', allAlerts);
         alerts = allAlerts.content ? 
           allAlerts.content.filter(alert => alert.type === 'LOST' && alert.status === 'ACTIVE') :
           (Array.isArray(allAlerts) ? allAlerts.filter(alert => alert.type === 'LOST' && alert.status === 'ACTIVE') : []);
       }
       
       const dogsData = alerts.content || alerts || [];
+      console.log('✅ fetchLostDogs: Final dogs data:', dogsData);
       setLostDogs(dogsData);
       return dogsData;
     } catch (err) {
-      console.error('Error al obtener perros perdidos:', err);
-      
-      // Check if it's a network/connection error
-      if (err.message.includes('fetch') || err.message.includes('timeout') || 
-          err.message.includes('Network') || err.message.includes('Failed to fetch')) {
-        console.log('Backend not accessible, using dummy data for lost dogs');
-        return useDummyDataFallback('LOST');
-      }
+      console.error('❌ Error al obtener perros perdidos:', err);
+      console.error('❌ Error message:', err.message);
+      console.error('❌ Error stack:', err.stack);
       
       const errorMessage = err.message === 'TOKEN_EXPIRED' 
         ? 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.'
-        : 'No se pudieron cargar los perros perdidos. Mostrando datos de ejemplo.';
+        : 'No se pudieron cargar los perros perdidos. Verifica tu conexión a internet.';
       setError(errorMessage);
-      return useDummyDataFallback('LOST');
+      setLostDogs([]);
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [useDummyDataFallback]);
+  }, []);
 
   // Obtener perros encontrados
   const fetchFoundDogs = useCallback(async () => {
@@ -94,38 +59,31 @@ export const AlertProvider = ({ children }) => {
       // First try with type filter
       let alerts;
       try {
-        alerts = await apiService.getAlerts({ type: 'FOUND', status: 'ACTIVE' });
+        alerts = await apiService.getAlerts({ type: 'SEEN', status: 'ACTIVE' });
       } catch (typeError) {
         console.log('Type filter failed, trying without filter:', typeError.message);
         // If type filter fails, get all alerts and filter locally
         const allAlerts = await apiService.getAlerts();
         alerts = allAlerts.content ? 
-          allAlerts.content.filter(alert => alert.type === 'FOUND' && alert.status === 'ACTIVE') :
-          (Array.isArray(allAlerts) ? allAlerts.filter(alert => alert.type === 'FOUND' && alert.status === 'ACTIVE') : []);
+          allAlerts.content.filter(alert => alert.type === 'SEEN' && alert.status === 'ACTIVE') :
+          (Array.isArray(allAlerts) ? allAlerts.filter(alert => alert.type === 'SEEN' && alert.status === 'ACTIVE') : []);
       }
-      
-      const dogsData = alerts.content || alerts || [];
+       const dogsData = alerts.content || alerts || [];
       setFoundDogs(dogsData);
       return dogsData;
     } catch (err) {
-      console.error('Error al obtener perros encontrados:', err);
-      
-      // Check if it's a network/connection error
-      if (err.message.includes('fetch') || err.message.includes('timeout') || 
-          err.message.includes('Network') || err.message.includes('Failed to fetch')) {
-        console.log('Backend not accessible, using dummy data for found dogs');
-        return useDummyDataFallback('FOUND');
-      }
+      console.error('❌ Error al obtener perros encontrados:', err);
       
       const errorMessage = err.message === 'TOKEN_EXPIRED' 
         ? 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.'
-        : 'No se pudieron cargar los perros encontrados. Mostrando datos de ejemplo.';
+        : 'No se pudieron cargar los perros encontrados. Verifica tu conexión a internet.';
       setError(errorMessage);
-      return useDummyDataFallback('FOUND');
+      setFoundDogs([]);
+      return [];
     } finally {
       setLoading(false);
     }
-  }, [useDummyDataFallback]);
+  }, []);
 
   // Obtener una alerta específica por ID
   const getAlert = useCallback(async (id) => {
@@ -173,7 +131,7 @@ export const AlertProvider = ({ children }) => {
     try {
       const newAlert = await apiService.createAlert({
         ...alertData,
-        type: 'FOUND',
+        type: 'SEEN',
         status: 'ACTIVE',
       });
       

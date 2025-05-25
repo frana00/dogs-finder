@@ -99,7 +99,7 @@ const FoundDogDetailScreen = ({ navigation }) => {
         return;
       }
       let result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ImagePicker.MediaType.Images,
           allowsEditing: true, aspect: [4, 3], quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {

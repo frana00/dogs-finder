@@ -99,7 +99,7 @@ const LostDogDetailScreen = ({ navigation }) => {
         return;
       }
       let result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
+          mediaTypes: ImagePicker.MediaType.Images,
           allowsEditing: true, aspect: [4, 3], quality: 0.7,
       });
       if (!result.canceled && result.assets && result.assets.length > 0) {
@@ -131,7 +131,8 @@ const LostDogDetailScreen = ({ navigation }) => {
       <View style={styles.header}>
         {images.length > 0 ? (
           <>
-            <ScrollView
+            <FlatList
+                data={images}
                 horizontal
                 pagingEnabled
                 onScroll={handleImageScroll}
@@ -139,16 +140,21 @@ const LostDogDetailScreen = ({ navigation }) => {
                 showsHorizontalScrollIndicator={false}
                 style={{ width: screenWidth, height: 280 }}
                 contentContainerStyle={{ alignItems: 'center' }}
-            >
-              {images.map((img, index) => (
-                 <TouchableOpacity
+                keyExtractor={(item, index) => index.toString()}
+                renderItem={({ item, index }) => (
+                  <TouchableOpacity
                     key={index}
                     onPress={() => { setSelectedImageIndex(index); setModalVisible(true); }}
                   >
-                    <Image source={img} style={[styles.dogImage, { width: screenWidth }]} resizeMode="cover"/>
-                 </TouchableOpacity>
-              ))}
-            </ScrollView>
+                    <Image source={item} style={[styles.dogImage, { width: screenWidth }]} resizeMode="cover"/>
+                  </TouchableOpacity>
+                )}
+                getItemLayout={(data, index) => ({
+                  length: screenWidth,
+                  offset: screenWidth * index,
+                  index,
+                })}
+            />
              {images.length > 1 && (
                  <View style={styles.dotsContainer}>
                     {images.map((_, idx) => ( <View key={idx} style={[ styles.dot, activeImageIndex === idx && styles.dotActive ]}/> ))}

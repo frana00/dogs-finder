@@ -2,11 +2,6 @@ import { API_CONFIG, buildUrl } from '../config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 class ApiService {
-  constructor() {
-    this.baseURL = API_CONFIG.BASE_URL;
-    this.timeout = API_CONFIG.TIMEOUT;
-  }
-
   // Método para obtener headers con token de autenticación
   async getAuthHeaders() {
     const token = await AsyncStorage.getItem('userToken');
@@ -18,17 +13,29 @@ class ApiService {
 
   // Método genérico para hacer peticiones
   async request(endpoint, options = {}) {
-    const url = buildUrl(endpoint);
+    const url = await buildUrl(endpoint);
     const headers = await this.getAuthHeaders();
 
     const config = {
-      timeout: this.timeout,
       headers,
       ...options,
     };
 
+    console.log('🌐 API Request:', { url, method: options.method || 'GET', headers, body: options.body });
+
     try {
-      const response = await fetch(url, config);
+      // Implementar timeout manual porque fetch no lo respeta
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), API_CONFIG.TIMEOUT);
+      
+      const response = await fetch(url, {
+        ...config,
+        signal: controller.signal
+      });
+      
+      clearTimeout(timeoutId);
+      
+      console.log('🌐 API Response:', { status: response.status, ok: response.ok, url });
       
       // Si es 401, el token expiró
       if (response.status === 401) {
@@ -40,6 +47,7 @@ class ApiService {
       // Si no es exitoso, lanzar error
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
+        console.error('❌ API Error response:', errorData);
         throw new Error(errorData.message || `HTTP Error: ${response.status}`);
       }
 
@@ -55,7 +63,13 @@ class ApiService {
 
       return await response.text();
     } catch (error) {
-      console.error(`API Error for ${endpoint}:`, error);
+      console.error(`❌ API Error for ${endpoint}:`, error);
+      
+      // Manejar timeout/abort
+      if (error.name === 'AbortError') {
+        throw new Error('Request timeout');
+      }
+      
       throw error;
     }
   }
@@ -83,10 +97,48 @@ class ApiService {
   }
 
   async register(userData) {
+    // Transform frontend userData to backend UserRequest format
+    const userRequest = {
+      username: userData.email, // Backend usa email como username
+      email: userData.email,
+      subscriptionEmail: userData.subscriptionEmail || userData.email,
+      phoneNumber: userData.phone || userData.phoneNumber
+    };
+    
+    console.log('📤 Sending registration data:', userRequest);
+    
     return this.request(API_CONFIG.ENDPOINTS.REGISTER, {
       method: 'POST',
-      body: JSON.stringify(userData),
+      body: JSON.stringify(userRequest),
     });
+  }
+
+  // Método para probar la conectividad
+  async testConnection() {
+    try {
+      const baseUrl = await buildUrl('');
+      console.log('🔍 Testing connection to:', baseUrl);
+      
+      // Probar el endpoint de login primero (sabemos que funciona)
+      const testResponse = await fetch(baseUrl + '/auth/login', {
+        method: 'POST',
+        headers: { 
+          'Content-Type': 'application/json',
+          'Accept': 'application/json' 
+        },
+        body: JSON.stringify({
+          username: 'test@test.com',
+          password: 'test123'
+        }),
+        timeout: 5000
+      });
+      
+      console.log('🔍 Login test response:', testResponse.status);
+      return testResponse.ok;
+    } catch (error) {
+      console.log('🔍 Connection test failed:', error.message);
+      return false;
+    }
   }
 
   // Métodos para usuarios

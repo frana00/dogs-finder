@@ -80,7 +80,6 @@ dogs-finder/
 ├── ⚙️ app.config.js                    # Configuración de Expo con variables de entorno
 ├── 📦 package.json                     # Dependencias y scripts
 ├── 🔧 babel.config.js                  # Configuración de Babel con dotenv
-├── 📝 TESTING_CREDENTIALS.md           # Credenciales de prueba y documentación
 ├── 🔐 .env                            # Variables de entorno (excluido de git)
 ├── 🚫 .gitignore                      # Archivos ignorados por git
 ├── 🎨 assets/                         # Recursos estáticos
@@ -96,6 +95,8 @@ dogs-finder/
     ├── ⚙️ config/
     │   ├── api.js                    # Configuración de API con variables de entorno
     │   └── api.example.js            # Ejemplo de configuración
+    ├── 🔧 constants/                 # Constantes de la aplicación
+    │   └── index.js                  # Estados de alertas, tipos, configuración
     ├── 🗃️ context/                   # Contextos de React
     │   ├── AlertContext.js           # Estado global de alertas con fallback
     │   └── AuthContext.js            # Estado de autenticación híbrido
@@ -124,6 +125,7 @@ dogs-finder/
     │   └── 👤 ProfileScreen.js            # Perfil de usuario editable
     └── 🌐 services/
         ├── alertService.js           # Cliente API con manejo de errores y fallback
+        ├── alertServiceFunctional.js # Versión funcional del servicio de alertas
         ├── apiService.js             # Servicio principal con transformación de datos
         └── photoService.js           # Upload de fotos a AWS S3 con presigned URLs
 ```
@@ -154,10 +156,10 @@ cp .env.example .env
 
 # Editar .env con tus valores
 GOOGLE_PLACES_API_KEY=tu_google_places_api_key
-BACKEND_URL=http://<TU_IP_LOCAL>:8080/api/v1  # Reemplaza <TU_IP_LOCAL> por la IP de tu máquina en la red local
+BACKEND_URL=http://localhost:8080/api/v1  # Para simulador local
 ```
 
-**Nota**: La app detecta automáticamente si está ejecutándose en simulador o dispositivo físico y ajusta la URL del backend accordingly.
+**Nota**: La app detecta automáticamente si está ejecutándose en simulador o dispositivo físico y ajusta la URL del backend.
 
 ### **4. Iniciar la Aplicación**
 ```bash
@@ -216,13 +218,6 @@ Contraseña: test123
 
 ## 🧪 Testing y Desarrollo
 
-### **Credenciales de Prueba Disponibles**
-Consulta `TESTING_CREDENTIALS.md` para:
-- Usuarios preconfigurados
-- Datos de prueba
-- Escenarios de testing
-- Instrucciones detalladas
-
 ### **Scripts Disponibles**
 ```bash
 npm start          # Servidor de desarrollo
@@ -269,7 +264,7 @@ npm run web        # Versión web (limitada)
 - ✅ **Compatibilidad cross-platform** - iOS y Android
 
 ### **🔄 En Desarrollo**
-- 🔄 **Chat en tiempo real** - Sistema de mensajería
+- 🔄 **Chat en tiempo real** - Sistema de mensajería básico implementado
 - 🔄 **Geolocalización avanzada** - Coordenadas en alertas
 - 🔄 **Notificaciones push** - Para alertas cercanas
 - 🔄 **Filtros avanzados** - Por ubicación, raza, fecha
@@ -298,7 +293,7 @@ La aplicación está integrada con un backend Spring Boot que proporciona:
 ### **🛠️ Configuración del Backend**
 ```bash
 # El backend debe estar ejecutándose en:
-# http://172.20.10.10:8080/api/v1
+# http://localhost:8080/api/v1
 
 # Endpoints principales:
 POST /auth/login           # Autenticación
@@ -323,7 +318,7 @@ La app detecta automáticamente:
 
 ## 📄 Licencia
 
-Este proyecto está bajo la licencia MIT. Ver `LICENSE` para más detalles.
+Distribuido bajo la licencia MIT.
 
 ## 👥 Autores
 

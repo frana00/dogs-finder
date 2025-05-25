@@ -8,14 +8,34 @@ import apiService from '../../services/apiService';
 import { AuthContext } from '../../context/AuthContext';
 
 const CreateAlertScreen = ({ navigation }) => {
-  const { user } = useContext(AuthContext);
-  const [dogName, setDogName] = useState('');
-  const [description, setDescription] = useState('');
-  const [chip, setChip] = useState('');
-  const [location, setLocation] = useState('');
-  const [gettingLocation, setGettingLocation] = useState(false);
-  const [photos, setPhotos] = useState([]); // Para varias imágenes (máx 5)
-  const [isLoading, setIsLoading] = useState(false); // Estado para el indicador de carga
+  try {
+    const authContext = useContext(AuthContext);
+    
+    // Verificación de seguridad para el contexto
+    if (!authContext) {
+      console.error('AuthContext not found');
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Error: Contexto de autenticación no disponible</Text>
+        </View>
+      );
+    }
+    
+    const { user } = authContext;
+    
+    // Inicializar states de forma segura
+    const [dogName, setDogName] = useState('');
+    const [description, setDescription] = useState('');
+    const [chip, setChip] = useState('');
+    const [location, setLocation] = useState('');
+    const [postalCode, setPostalCode] = useState(null); // Initialize to null
+    const [gettingLocation, setGettingLocation] = useState(false);
+    const [photos, setPhotos] = useState([]); // Para varias imágenes (máx 5)
+    const [isLoading, setIsLoading] = useState(false); // Estado para el indicador de carga
+
+    console.log('🔍 CreateAlertScreen: Component rendered, photos:', photos);
+    console.log('🔍 CreateAlertScreen: user:', user);
+  console.log('🔍 CreateAlertScreen: photos type:', typeof photos, 'isArray:', Array.isArray(photos));
 
   useEffect(() => {
     const getLocation = async () => {
@@ -52,6 +72,10 @@ const CreateAlertScreen = ({ navigation }) => {
   }, []);
 
   const handleSubmit = async () => {
+    console.log('🚀 handleSubmit: Starting...');
+    console.log('🔍 handleSubmit: photos:', photos);
+    console.log('🔍 handleSubmit: user:', user);
+    
     if (!dogName || !description || !location) {
       Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: nombre, descripción y ubicación.');
       return;
@@ -76,7 +100,7 @@ const CreateAlertScreen = ({ navigation }) => {
         title: dogName,
         description: description,
         breed: 'mixed',
-        postalCode: '00000', // Placeholder
+        postalCode: postalCode,
         countryCode: 'CL', // Placeholder
       };
 
@@ -87,11 +111,12 @@ const CreateAlertScreen = ({ navigation }) => {
       }
 
       // Paso 2: Subir fotos si hay
-      if (photos.length > 0) {
+      const validPhotos = Array.isArray(photos) ? photos : [];
+      if (validPhotos.length > 0) {
         let allPhotosUploadedSuccessfully = true;
         const uploadErrors = [];
 
-        for (const photoUri of photos) {
+        for (const photoUri of validPhotos) {
           try {
             await apiService.uploadPhoto(createdAlert.id, photoUri);
           } catch (uploadError) {
@@ -123,6 +148,7 @@ const CreateAlertScreen = ({ navigation }) => {
       setDogName('');
       setDescription('');
       setLocation('');
+      setPostalCode(null); // Clear postal code state to null
       setChip('');
       setPhotos([]);
 
@@ -146,21 +172,30 @@ const CreateAlertScreen = ({ navigation }) => {
 
   // Función para elegir imagen
   const pickImage = async () => {
-    if (photos.length >= 5) return;
+    // Asegurar que photos siempre sea un array
+    const currentPhotos = Array.isArray(photos) ? photos : [];
+    if (currentPhotos.length >= 5) return;
+    
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
+    
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotos([...photos, result.assets[0].uri].slice(0, 5));
+      const newPhotos = [...currentPhotos, result.assets[0].uri];
+      setPhotos(newPhotos.slice(0, 5));
     }
   };
 
   // Eliminar foto por índice
   const removePhoto = (idx) => {
-    setPhotos(photos.filter((_, i) => i !== idx));
+    setPhotos((prevPhotos) => {
+      // Asegurar que prevPhotos es siempre un array
+      const safePhotos = Array.isArray(prevPhotos) ? prevPhotos : [];
+      return safePhotos.filter((_, i) => i !== idx);
+    });
   };
 
   return (
@@ -202,54 +237,92 @@ const CreateAlertScreen = ({ navigation }) => {
           keyboardType="numeric"
         />
         <Text style={styles.label}>Ubicación donde se perdió/vio</Text>
-        <GooglePlacesAutocomplete
-          placeholder="Buscar dirección o lugar"
-          minLength={2}
-          fetchDetails={true}
-          onPress={(data, details = null) => {
-            if (details && details.formatted_address) {
-              setLocation(details.formatted_address);
-            } else {
-              setLocation(data.description);
-            }
-          }}
-          query={{
-            key: Constants.expoConfig.extra.googlePlacesApiKey,
-            language: 'es',
-            components: 'country:cl',
-          }}
-          styles={{
-            textInput: styles.input,
-            listView: { 
-              zIndex: 1000,
-              elevation: 1000,
-              position: 'absolute',
-              top: 50,
-              backgroundColor: 'white',
-              borderWidth: 1,
-              borderColor: '#ccc',
-              borderRadius: 8,
-            },
-          }}
-          enablePoweredByContainer={false}
-          debounce={300}
-          listViewDisplayed="auto"
-          keyboardShouldPersistTaps="handled"
-          suppressDefaultStyles={false}
+        {Constants.expoConfig?.extra?.googlePlacesApiKey ? (
+          <GooglePlacesAutocomplete
+            placeholder="Buscar dirección o lugar"
+            predefinedPlaces={[]}
+            minLength={2}
+            fetchDetails={true}
+            onPress={(data, details = null) => {
+              try {
+                if (details) {
+                  setLocation(details.formatted_address || data.description);
+                  // Extract postal code
+                  const postalCodeComponent = details.address_components.find(
+                    component => component.types.includes('postal_code')
+                  );
+                  if (postalCodeComponent) {
+                    setPostalCode(postalCodeComponent.long_name || postalCodeComponent.short_name);
+                  } else {
+                    setPostalCode(null); // Set to null if not found
+                    console.warn('Postal code not found in Google Places details');
+                  }
+                } else if (data && data.description) {
+                  setLocation(data.description);
+                  setPostalCode(null); // Set to null if only description is available
+                }
+              } catch (error) {
+                console.error('Error en GooglePlacesAutocomplete onPress:', error);
+              }
+            }}
+            query={{
+              key: Constants.expoConfig.extra.googlePlacesApiKey,
+              language: 'es',
+              components: 'country:cl',
+            }}
+            styles={{
+              textInput: styles.input,
+              listView: { 
+                zIndex: 1000,
+                elevation: 1000,
+                position: 'absolute',
+                top: 50,
+                backgroundColor: 'white',
+                borderWidth: 1,
+                borderColor: '#ccc',
+                borderRadius: 8,
+              },
+            }}
+            enablePoweredByContainer={false}
+            debounce={300}
+            listViewDisplayed="auto"
+            keyboardShouldPersistTaps="handled"
+            suppressDefaultStyles={false}
+            textInputProps={{
+              onChangeText: (text) => {
+                // Fallback manual para ubicación
+                setLocation(text);
+              }
+            }}
+          />
+        ) : (
+          <TextInput
+            style={styles.input}
+            placeholder="Ingresa la ubicación manualmente"
+            value={location}
+            onChangeText={setLocation}
+          />
+        )}
+        <Text style={styles.label}>Código Postal</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: 7500000 (Opcional si Google lo encuentra)"
+          value={postalCode || ''} // Show empty string if postalCode is null
+          onChangeText={setPostalCode}
+          keyboardType="numeric"
         />
-        <View style={{ height: 60 }} />
         <Text style={styles.label}>Subir fotos (máx 5)</Text>
         <TouchableOpacity
-          style={[styles.uploadButton, photos.length >= 5 && { opacity: 0.5 }]}
+          style={[styles.uploadButton, (Array.isArray(photos) ? photos.length : 0) >= 5 && { opacity: 0.5 }]}
           onPress={pickImage}
           activeOpacity={0.8}
-          disabled={photos.length >= 5}
+          disabled={(Array.isArray(photos) ? photos.length : 0) >= 5}
         >
           <Text style={styles.uploadButtonText}>Agregar foto</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginVertical: 12 }}>
-          {photos.map((uri, idx) => (
-            <View key={uri} style={{ marginRight: 8, marginBottom: 8 }}>
+          {(Array.isArray(photos) ? photos : []).map((uri, idx) => (
+            <View key={uri || idx} style={{ marginRight: 8, marginBottom: 8 }}>
               <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#ccc' }} />
               <TouchableOpacity
                 onPress={() => removePhoto(idx)}
@@ -288,6 +361,25 @@ const CreateAlertScreen = ({ navigation }) => {
       </ScrollView>
     </KeyboardAvoidingView>
   );
+  } catch (error) {
+    console.error('Error en CreateAlertScreen:', error);
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 18, color: 'red', textAlign: 'center', marginBottom: 16 }}>
+          Error al cargar la pantalla
+        </Text>
+        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
+          {error.message || 'Ha ocurrido un error inesperado'}
+        </Text>
+        <TouchableOpacity 
+          style={{ marginTop: 20, padding: 12, backgroundColor: '#FF9800', borderRadius: 8 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: 'white', fontSize: 16 }}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 };
 
 const styles = StyleSheet.create({

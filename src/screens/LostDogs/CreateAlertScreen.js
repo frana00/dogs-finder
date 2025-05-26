@@ -25,6 +25,7 @@ const CreateAlertScreen = ({ navigation }) => {
     
     // Inicializar states de forma segura
     const [dogName, setDogName] = useState('');
+    const [breed, setBreed] = useState(''); // State for breed
     const [description, setDescription] = useState('');
     const [chip, setChip] = useState('');
     const [location, setLocation] = useState('');
@@ -99,7 +100,8 @@ const CreateAlertScreen = ({ navigation }) => {
         date: new Date().toISOString(),
         title: dogName,
         description: description,
-        breed: 'mixed',
+        breed: breed.trim() || 'Mestizo', // Send breed, default to 'Mestizo' if empty
+        address: location, // Send the full address string from Google Places
         postalCode: postalCode,
         countryCode: 'CL', // Placeholder
       };
@@ -146,6 +148,7 @@ const CreateAlertScreen = ({ navigation }) => {
 
       // Limpiar formulario
       setDogName('');
+      setBreed(''); // Clear breed state
       setDescription('');
       setLocation('');
       setPostalCode(null); // Clear postal code state to null
@@ -217,6 +220,13 @@ const CreateAlertScreen = ({ navigation }) => {
           placeholder="Ej: Rocky"
           value={dogName}
           onChangeText={setDogName}
+        />
+        <Text style={styles.label}>Raza (opcional)</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Ej: Labrador, Poodle, Mestizo"
+          value={breed}
+          onChangeText={setBreed}
         />
         <Text style={styles.label}>Descripción</Text>
         <TextInput

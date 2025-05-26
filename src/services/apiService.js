@@ -189,27 +189,68 @@ class ApiService {
 
   // Método para subir fotos
   async uploadPhoto(alertId, photoUri) {
-    const endpoint = API_CONFIG.ENDPOINTS.UPLOAD_PHOTO_TO_ALERT.replace('{alertId}', alertId);
-    
-    const formData = new FormData();
+    // Part 1: Call POST /alerts/{alertId}/photos to get the S3 presigned URL and s3ObjectKey
+    const initialEndpoint = API_CONFIG.ENDPOINTS.UPLOAD_PHOTO_TO_ALERT.replace('{alertId}', alertId);
     const uriParts = photoUri.split('.');
-    const fileType = uriParts[uriParts.length - 1];
-    
-    formData.append('file', {
-      uri: photoUri,
-      name: `photo_${Date.now()}.${fileType}`,
-      type: `image/${fileType}`,
-    });
+    const fileType = uriParts[uriParts.length - 1] || 'jpg'; // Default to jpg if no extension
+    const suggestedFilename = `photo_${Date.now()}.${fileType}`;
 
-    const headers = await this.getAuthHeaders();
-    // Remove Content-Type header to let the browser set it with boundary for FormData
-    delete headers['Content-Type'];
+    const authHeaders = await this.getAuthHeaders();
 
-    return this.request(endpoint, {
+    console.log(`🚀 Step 1: Requesting S3 upload details from ${initialEndpoint} for ${suggestedFilename}`);
+    // Make the initial request to our backend to get S3 upload details
+    const s3UploadInstructions = await this.request(initialEndpoint, {
       method: 'POST',
-      headers,
-      body: formData,
+      headers: {
+        // this.request will spread its own default headers (including auth if getAuthHeaders is part of it)
+        // Explicitly set Content-Type and Accept for this JSON request
+        ...authHeaders, // Ensure auth headers are included if not automatically by this.request
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify({ photoFilenames: [suggestedFilename] }),
     });
+
+    console.log('✅ Received S3 upload instructions:', s3UploadInstructions);
+
+    // Expecting response like: [ { "s3ObjectKey": "...", "presignedUrl": "..." } ]
+    if (!s3UploadInstructions || !Array.isArray(s3UploadInstructions) || s3UploadInstructions.length === 0 ||
+        !s3UploadInstructions[0].presignedUrl || !s3UploadInstructions[0].s3ObjectKey) {
+      console.error('❌ Failed to get S3 presigned URL or s3ObjectKey from backend:', s3UploadInstructions);
+      throw new Error('Failed to get S3 upload details from backend.');
+    }
+    
+    const { presignedUrl, s3ObjectKey } = s3UploadInstructions[0];
+
+    // Part 2: Upload the actual file DIRECTLY to the S3 presigned URL
+    console.log(`🚀 Step 2: Fetching local image blob for ${photoUri}`);
+    const imageResponse = await fetch(photoUri);
+    if (!imageResponse.ok) {
+      console.error(`❌ Failed to fetch local image URI: ${photoUri}, status: ${imageResponse.status}`);
+      throw new Error(`Failed to fetch local image URI: ${photoUri}`);
+    }
+    const imageBlob = await imageResponse.blob();
+    const imageContentType = imageBlob.type || `image/${fileType}`; // Use blob's type, or derive
+
+    console.log(`🚀 Step 3: Uploading to S3 presigned URL: ${presignedUrl.substring(0,100)}... Content-Type: ${imageContentType}`);
+
+    const s3Response = await fetch(presignedUrl, {
+      method: 'PUT',
+      headers: {
+        'Content-Type': imageContentType,
+        // No Authorization header for S3 presigned PUT
+      },
+      body: imageBlob,
+    });
+
+    if (!s3Response.ok) {
+      const s3ErrorText = await s3Response.text().catch(() => `S3 upload failed with status ${s3Response.status}`);
+      console.error(`❌ S3 upload failed: ${s3Response.status}, Key: ${s3ObjectKey}, Error: ${s3ErrorText}`);
+      throw new Error(`S3 upload failed: ${s3Response.status}. Details: ${s3ErrorText}`);
+    }
+
+    console.log(`✅ S3 upload successful for objectKey: ${s3ObjectKey}`);
+    return { success: true, s3ObjectKey };
   }
 
   // Método para eliminar foto

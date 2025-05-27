@@ -32,6 +32,10 @@ const MapScreen = ({ navigation }) => {
 
   // Convertir alertas a formato para marcadores del mapa
   const convertAlertsToMarkers = (alerts, type) => {
+    // Verificar que alerts sea un array antes de usar filter
+    if (!Array.isArray(alerts)) {
+      return [];
+    }
     return alerts.filter(alert => alert.latitude && alert.longitude).map(alert => ({
       id: alert.id,
       title: alert.title,

@@ -1,5 +1,7 @@
 import { API_CONFIG, buildUrl } from '../config/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Buffer } from 'buffer'; // Added for Base64 encoding
+import { BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD } from '@env'; // Added for Basic Auth credentials
 
 class ApiService {
   // Método para obtener headers con token de autenticación
@@ -14,14 +16,33 @@ class ApiService {
   // Método genérico para hacer peticiones
   async request(endpoint, options = {}) {
     const url = await buildUrl(endpoint);
-    const headers = await this.getAuthHeaders();
+    let combinedHeaders = await this.getAuthHeaders(); // Este ya tiene Content-Type, Accept y Bearer (si existe)
+
+    // Añadir Basic Auth si las credenciales están disponibles y no hay un token Bearer
+    // O si el endpoint es el de login, donde Basic Auth podría ser requerido en lugar de Bearer
+    // Esta lógica puede necesitar ajuste fino según cómo el backend priorice los esquemas de Auth
+    if (BASIC_AUTH_USERNAME && BASIC_AUTH_PASSWORD) {
+      const basicAuthCredentials = `${BASIC_AUTH_USERNAME}:${BASIC_AUTH_PASSWORD}`;
+      const base64Credentials = Buffer.from(basicAuthCredentials).toString('base64');
+      
+      // Si ya existe un header 'Authorization' (del token Bearer), no lo sobrescribimos para Basic Auth
+      // a menos que sea el endpoint de login, que específicamente podría necesitar Basic.
+      // Para simplificar, por ahora, si hay Bearer, se usa Bearer. Si no, se intenta Basic.
+      // Esto podría ser un problema si el login necesita Basic Y hay un token Bearer viejo/inválido.
+      if (!combinedHeaders.Authorization || endpoint === API_CONFIG.ENDPOINTS.LOGIN) {
+           combinedHeaders = {
+            ...combinedHeaders,
+            'Authorization': `Basic ${base64Credentials}`,
+          };
+      }
+    }
 
     const config = {
-      headers,
+      headers: combinedHeaders, // Usar los headers combinados
       ...options,
     };
 
-    console.log('🌐 API Request:', { url, method: options.method || 'GET', headers, body: options.body });
+    console.log('🌐 API Request:', { url, method: options.method || 'GET', headers: config.headers, body: options.body }); // Loguear los headers finales
 
     try {
       // Implementar timeout manual porque fetch no lo respeta

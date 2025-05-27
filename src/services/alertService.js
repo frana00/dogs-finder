@@ -92,7 +92,7 @@ class AlertService {
           const response = await this.request(url);
           
           // Filter locally by type if needed
-          if (response && response.content) {
+          if (response && response.content && Array.isArray(response.content)) {
             response.content = response.content.filter(alert => alert.type === params.type);
           } else if (Array.isArray(response)) {
             return response.filter(alert => alert.type === params.type);

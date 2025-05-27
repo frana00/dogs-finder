@@ -22,13 +22,26 @@ import apiService from '../../services/apiService';
 import { AuthContext } from '../../context/AuthContext';
 
 const FoundDogAlertScreen = ({ navigation }) => {
-  const { user } = useContext(AuthContext);
-  const autoCompleteRef = useRef(null);
-  const [description, setDescription] = useState('');
-  const [location, setLocation] = useState('');
-  const [gettingLocation, setGettingLocation] = useState(false);
-  const [photos, setPhotos] = useState([]);
-  const [foundDate, setFoundDate] = useState(new Date().toISOString().slice(0, 16)); // yyyy-mm-ddThh:mm
+  try {
+    const authContext = useContext(AuthContext);
+    
+    // Verificación de seguridad para el contexto
+    if (!authContext) {
+      console.error('AuthContext not found in FoundDogAlertScreen');
+      return (
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <Text>Error: Contexto de autenticación no disponible</Text>
+        </View>
+      );
+    }
+    
+    const { user } = authContext;
+    const autoCompleteRef = useRef(null);
+    const [description, setDescription] = useState('');
+    const [location, setLocation] = useState('');
+    const [gettingLocation, setGettingLocation] = useState(false);
+    const [photos, setPhotos] = useState([]);
+    const [foundDate, setFoundDate] = useState(new Date().toISOString().slice(0, 16)); // yyyy-mm-ddThh:mm
   const [chipStatus, setChipStatus] = useState('no_sabe'); // 'no_sabe', 'si', 'no'
   const [chipNumber, setChipNumber] = useState('');
   const [dogSafe, setDogSafe] = useState('si'); // 'si', 'no'
@@ -66,7 +79,8 @@ const FoundDogAlertScreen = ({ navigation }) => {
 
   // Elegir foto
   const pickImage = async () => {
-    if (photos.length >= 5) return;
+    const currentPhotos = Array.isArray(photos) ? photos : [];
+    if (currentPhotos.length >= 5) return;
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -74,13 +88,16 @@ const FoundDogAlertScreen = ({ navigation }) => {
       quality: 0.8,
     });
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      setPhotos([...photos, result.assets[0].uri].slice(0, 5));
+      setPhotos([...currentPhotos, result.assets[0].uri].slice(0, 5));
     }
   };
 
   // Eliminar foto
   const removePhoto = (idx) => {
-    setPhotos(photos.filter((_, i) => i !== idx));
+    setPhotos((prevPhotos) => {
+      const safePhotos = Array.isArray(prevPhotos) ? prevPhotos : [];
+      return safePhotos.filter((_, i) => i !== idx);
+    });
   };
 
   // Enviar alerta
@@ -122,11 +139,12 @@ const FoundDogAlertScreen = ({ navigation }) => {
       }
 
       // Subir fotos si hay
-      if (photos.length > 0) {
+      const validPhotos = Array.isArray(photos) ? photos : [];
+      if (validPhotos.length > 0) {
         let allPhotosUploadedSuccessfully = true;
         const uploadErrors = [];
 
-        for (const photoUri of photos) {
+        for (const photoUri of validPhotos) {
           try {
             await apiService.uploadPhoto(createdAlert.id, photoUri);
           } catch (uploadError) {
@@ -203,15 +221,15 @@ const FoundDogAlertScreen = ({ navigation }) => {
         {/* Fotos */}
         <Text style={styles.label}>Subir fotos (máx 5)</Text>
         <TouchableOpacity
-          style={[styles.uploadButton, photos.length >= 5 && { opacity: 0.5 }]}
+          style={[styles.uploadButton, (Array.isArray(photos) ? photos.length : 0) >= 5 && { opacity: 0.5 }]}
           onPress={pickImage}
           activeOpacity={0.8}
-          disabled={photos.length >= 5}
+          disabled={(Array.isArray(photos) ? photos.length : 0) >= 5}
         >
           <Text style={styles.uploadButtonText}>Agregar foto</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginVertical: 12 }}>
-          {photos.map((uri, idx) => (
+          {Array.isArray(photos) && photos.map((uri, idx) => (
             <View key={uri} style={{ marginRight: 8, marginBottom: 8 }}>
               <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#ccc' }} />
               <TouchableOpacity
@@ -388,6 +406,25 @@ const FoundDogAlertScreen = ({ navigation }) => {
       </TouchableWithoutFeedback>
     </KeyboardAvoidingView>
   );
+  } catch (error) {
+    console.error('Error en CreateFoundAlertScreen:', error);
+    return (
+      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
+        <Text style={{ fontSize: 18, color: 'red', textAlign: 'center', marginBottom: 16 }}>
+          Error al cargar la pantalla
+        </Text>
+        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
+          {error.message || 'Ha ocurrido un error inesperado'}
+        </Text>
+        <TouchableOpacity 
+          style={{ marginTop: 20, padding: 12, backgroundColor: '#FF9800', borderRadius: 8 }}
+          onPress={() => navigation.goBack()}
+        >
+          <Text style={{ color: 'white', fontSize: 16 }}>Volver</Text>
+        </TouchableOpacity>
+      </View>
+    );
+  }
 };
 
 const styles = StyleSheet.create({

@@ -1,12 +1,10 @@
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG, buildUrl } from '../config/api';
 import { ALERT_STATUS } from '../constants/index';
 import photoService from './photoService';
 
 /**
  * Simplified Alert Service - Functional approach
  */
-const BASE_URL = 'http://localhost:8080/api/v1';
-const ALERTS_ENDPOINT = `${BASE_URL}/alerts`;
 
 const request = async (url, options = {}) => {
   try {
@@ -69,7 +67,8 @@ export const getAlerts = async (params = {}) => {
   try {
     const defaultParams = { status: ALERT_STATUS.ACTIVE, ...params };
     const queryString = new URLSearchParams(defaultParams).toString();
-    const url = queryString ? `${ALERTS_ENDPOINT}?${queryString}` : ALERTS_ENDPOINT;
+    const baseAlertsUrl = await buildUrl(API_CONFIG.ENDPOINTS.ALERTS);
+    const url = queryString ? `${baseAlertsUrl}?${queryString}` : baseAlertsUrl;
     
     const response = await request(url);
     return response;
@@ -81,7 +80,7 @@ export const getAlerts = async (params = {}) => {
 
 export const getAlertById = async (id) => {
   try {
-    const url = `${ALERTS_ENDPOINT}/${id}`;
+    const url = await buildUrl(API_CONFIG.ENDPOINTS.GET_ALERT.replace('{id}', id));
     const response = await request(url);
     return response;
   } catch (error) {
@@ -93,10 +92,11 @@ export const getAlertById = async (id) => {
 export const createAlert = async (alertData, photoFiles = []) => {
   try {
     const backendData = transformToBackendFormat(alertData);
+    const createUrl = await buildUrl(API_CONFIG.ENDPOINTS.CREATE_ALERT);
     
     console.log('Creating alert with data:', backendData);
     
-    const response = await request(ALERTS_ENDPOINT, {
+    const response = await request(createUrl, {
       method: 'POST',
       body: JSON.stringify(backendData),
     });
@@ -123,7 +123,7 @@ export const createAlert = async (alertData, photoFiles = []) => {
 export const updateAlert = async (alertId, alertData, photoFiles = []) => {
   try {
     const backendData = transformToBackendFormat(alertData);
-    const url = `${ALERTS_ENDPOINT}/${alertId}`;
+    const url = await buildUrl(API_CONFIG.ENDPOINTS.UPDATE_ALERT.replace('{id}', alertId));
     
     const response = await request(url, {
       method: 'PUT',
@@ -139,7 +139,7 @@ export const updateAlert = async (alertId, alertData, photoFiles = []) => {
 
 export const deleteAlert = async (alertId) => {
   try {
-    const url = `${ALERTS_ENDPOINT}/${alertId}`;
+    const url = await buildUrl(API_CONFIG.ENDPOINTS.DELETE_ALERT.replace('{id}', alertId));
     await request(url, { method: 'DELETE' });
     return alertId;
   } catch (error) {

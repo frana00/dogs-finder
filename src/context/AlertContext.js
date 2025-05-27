@@ -26,12 +26,33 @@ export const AlertProvider = ({ children }) => {
         // If type filter fails, get all alerts and filter locally
         const allAlerts = await apiService.getAlerts();
         console.log('🔍 fetchLostDogs: Got all alerts:', allAlerts);
-        alerts = allAlerts.content ? 
-          allAlerts.content.filter(alert => alert.type === 'LOST' && alert.status === 'ACTIVE') :
-          (Array.isArray(allAlerts) ? allAlerts.filter(alert => alert.type === 'LOST' && alert.status === 'ACTIVE') : []);
+        console.log('🔍 fetchLostDogs: typeof allAlerts:', typeof allAlerts);
+        console.log('🔍 fetchLostDogs: allAlerts.content:', allAlerts?.content);
+        console.log('🔍 fetchLostDogs: Array.isArray(allAlerts):', Array.isArray(allAlerts));
+        console.log('🔍 fetchLostDogs: Array.isArray(allAlerts.content):', Array.isArray(allAlerts?.content));
+        
+        // Safe filtering with multiple fallbacks
+        let filteredAlerts = [];
+        if (allAlerts?.content && Array.isArray(allAlerts.content)) {
+          console.log('🔍 fetchLostDogs: Filtering allAlerts.content...');
+          filteredAlerts = allAlerts.content.filter(alert => {
+            console.log('🔍 fetchLostDogs: Processing alert:', alert);
+            return alert && alert.type === 'LOST' && alert.status === 'ACTIVE';
+          });
+        } else if (Array.isArray(allAlerts)) {
+          console.log('🔍 fetchLostDogs: Filtering allAlerts directly...');
+          filteredAlerts = allAlerts.filter(alert => {
+            console.log('🔍 fetchLostDogs: Processing alert:', alert);
+            return alert && alert.type === 'LOST' && alert.status === 'ACTIVE';
+          });
+        } else {
+          console.log('⚠️ fetchLostDogs: allAlerts is neither array nor has content array');
+        }
+        console.log('🔍 fetchLostDogs: filteredAlerts:', filteredAlerts);
+        alerts = filteredAlerts;
       }
       
-      const dogsData = alerts.content || alerts || [];
+      const dogsData = alerts?.content || alerts || [];
       console.log('✅ fetchLostDogs: Final dogs data:', dogsData);
       setLostDogs(dogsData);
       return dogsData;
@@ -64,9 +85,15 @@ export const AlertProvider = ({ children }) => {
         console.log('Type filter failed, trying without filter:', typeError.message);
         // If type filter fails, get all alerts and filter locally
         const allAlerts = await apiService.getAlerts();
-        alerts = allAlerts.content ? 
-          allAlerts.content.filter(alert => alert.type === 'SEEN' && alert.status === 'ACTIVE') :
-          (Array.isArray(allAlerts) ? allAlerts.filter(alert => alert.type === 'SEEN' && alert.status === 'ACTIVE') : []);
+        
+        // Safe filtering with multiple fallbacks
+        let filteredAlerts = [];
+        if (allAlerts?.content && Array.isArray(allAlerts.content)) {
+          filteredAlerts = allAlerts.content.filter(alert => alert.type === 'SEEN' && alert.status === 'ACTIVE');
+        } else if (Array.isArray(allAlerts)) {
+          filteredAlerts = allAlerts.filter(alert => alert.type === 'SEEN' && alert.status === 'ACTIVE');
+        }
+        alerts = filteredAlerts;
       }
        const dogsData = alerts.content || alerts || [];
       setFoundDogs(dogsData);
@@ -110,7 +137,7 @@ export const AlertProvider = ({ children }) => {
       });
       
       // Actualizar la lista local agregando la nueva alerta
-      setLostDogs(prev => [newAlert, ...prev]);
+      setLostDogs(prev => [newAlert, ...(Array.isArray(prev) ? prev : [])]);
       return newAlert;
     } catch (err) {
       console.error('Error al crear alerta de perro perdido:', err);
@@ -136,7 +163,7 @@ export const AlertProvider = ({ children }) => {
       });
       
       // Actualizar la lista local agregando la nueva alerta
-      setFoundDogs(prev => [newAlert, ...prev]);
+      setFoundDogs(prev => [newAlert, ...(Array.isArray(prev) ? prev : [])]);
       return newAlert;
     } catch (err) {
       console.error('Error al crear alerta de perro encontrado:', err);
@@ -158,12 +185,12 @@ export const AlertProvider = ({ children }) => {
       const updatedAlert = await apiService.updateAlert(id, updateData);
       
       // Actualizar en las listas locales
-      setLostDogs(prev => prev.map(alert => 
+      setLostDogs(prev => Array.isArray(prev) ? prev.map(alert => 
         alert.id === id ? updatedAlert : alert
-      ));
-      setFoundDogs(prev => prev.map(alert => 
+      ) : []);
+      setFoundDogs(prev => Array.isArray(prev) ? prev.map(alert => 
         alert.id === id ? updatedAlert : alert
-      ));
+      ) : []);
       
       return updatedAlert;
     } catch (err) {
@@ -186,8 +213,8 @@ export const AlertProvider = ({ children }) => {
       await apiService.deleteAlert(id);
       
       // Remover de las listas locales
-      setLostDogs(prev => prev.filter(alert => alert.id !== id));
-      setFoundDogs(prev => prev.filter(alert => alert.id !== id));
+      setLostDogs(prev => (Array.isArray(prev) ? prev.filter(alert => alert.id !== id) : []));
+      setFoundDogs(prev => (Array.isArray(prev) ? prev.filter(alert => alert.id !== id) : []));
       
       return true;
     } catch (err) {
@@ -202,15 +229,25 @@ export const AlertProvider = ({ children }) => {
     }
   }, []);
 
-  // Initialize data when the provider mounts
-  useEffect(() => {
-    const initializeData = async () => {
-      await fetchLostDogs();
-      await fetchFoundDogs();
-    };
+  // Initialize data when the provider mounts - TEMPORARILY DISABLED
+  // useEffect(() => {
+  //   console.log('🔍 AlertProvider: useEffect starting data initialization...');
+  //   const initializeData = async () => {
+  //     try {
+  //       console.log('🔍 AlertProvider: About to call fetchLostDogs...');
+  //       await fetchLostDogs();
+  //       console.log('✅ AlertProvider: fetchLostDogs completed');
+        
+  //       console.log('🔍 AlertProvider: About to call fetchFoundDogs...');
+  //       await fetchFoundDogs();
+  //       console.log('✅ AlertProvider: fetchFoundDogs completed');
+  //     } catch (error) {
+  //       console.error('❌ AlertProvider: Error during initialization:', error);
+  //     }
+  //   };
     
-    initializeData();
-  }, [fetchLostDogs, fetchFoundDogs]);
+  //   initializeData();
+  // }, [fetchLostDogs, fetchFoundDogs]);
 
   return (
     <AlertContext.Provider

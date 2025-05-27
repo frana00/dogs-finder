@@ -19,19 +19,24 @@ export const AuthProvider = ({ children }) => {
       
       if (storedToken && storedUser) {
         setToken(storedToken);
-        setUser(JSON.parse(storedUser));
+        const parsedUser = JSON.parse(storedUser);
         setIsAuthenticated(true);
         
-        // TODO: Verificar que el token sigue siendo válido cuando el endpoint esté disponible
-        // try {
-        //   const profile = await apiService.getProfile();
-        //   setUser(profile);
-        // } catch (error) {
-        //   // Si el token no es válido, limpiar datos
-        //   if (error.message === 'TOKEN_EXPIRED') {
-        //     await logout();
-        //   }
-        // }
+        // Obtener perfil completo
+        try {
+          console.log('🔄 AuthContext: Calling getProfile() in checkAuth...');
+          const profile = await apiService.getProfile();
+          console.log('✅ AuthContext: Profile data from getProfile() in checkAuth:', profile);
+          const fullUser = { ...parsedUser, ...profile }; // Combinar datos básicos con perfil completo
+          setUser(fullUser);
+          await AsyncStorage.setItem('userData', JSON.stringify(fullUser));
+        } catch (profileError) {
+          console.error('❌ AuthContext: Error fetching profile in checkAuth:', profileError);
+          setUser(parsedUser); // Usar datos básicos si el perfil falla
+        }
+      } else {
+        setIsAuthenticated(false);
+        setUser(null);
       }
     } catch (error) {
       console.error('Error al verificar autenticación:', error);
@@ -47,19 +52,29 @@ export const AuthProvider = ({ children }) => {
 
       const response = await apiService.login(email, password);
       
-      if (!response.token || !response.user) {
-        throw new Error('Respuesta inválida del servidor');
+      if (response && response.token && response.user) {
+        await AsyncStorage.setItem('userToken', response.token);
+        
+        setToken(response.token);
+        setIsAuthenticated(true);
+        
+        // Obtener perfil completo después del login
+        try {
+          console.log('🔄 AuthContext: Calling getProfile() after login...');
+          const profile = await apiService.getProfile();
+          console.log('✅ AuthContext: Profile data from getProfile() after login:', profile);
+          setUser(profile); 
+          await AsyncStorage.setItem('userData', JSON.stringify(profile));
+        } catch (profileError) {
+          console.error('❌ AuthContext: Error fetching profile after login:', profileError);
+          setUser(response.user); // Usar datos básicos del login si el perfil falla
+          await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+        }
+        
+        return { success: true };
+      } else {
+        throw new Error(response.message || 'Error en el login');
       }
-
-      // Guardar en AsyncStorage
-      await AsyncStorage.setItem('userToken', response.token);
-      await AsyncStorage.setItem('userData', JSON.stringify(response.user));
-
-      setToken(response.token);
-      setUser(response.user);
-      setIsAuthenticated(true);
-
-      return { success: true };
     } catch (error) {
       console.error('❌ Error en login:', error);
       
@@ -93,13 +108,29 @@ export const AuthProvider = ({ children }) => {
       
       const response = await apiService.register(userData);
       
-      // Después del registro exitoso, iniciar sesión automáticamente
-      if (response.success) {
-        const loginResult = await login(userData.email, userData.password);
-        return loginResult;
+      // Después del registro exitoso, usualmente se hace login automáticamente o se pide al usuario que inicie sesión.
+      // Si el backend devuelve un token y datos de usuario aquí, similar al login:
+      if (response && response.token && response.user) {
+        await AsyncStorage.setItem('userToken', response.token);
+        setToken(response.token);
+        setIsAuthenticated(true);
+        // Obtener perfil completo después del registro (si el backend loguea automáticamente)
+        try {
+          console.log('🔄 AuthContext: Calling getProfile() after register...');
+          const profile = await apiService.getProfile();
+          console.log('✅ AuthContext: Profile data from getProfile() after register:', profile);
+          setUser(profile);
+          await AsyncStorage.setItem('userData', JSON.stringify(profile));
+        } catch (profileError) {
+          console.error('❌ AuthContext: Error fetching profile after register:', profileError);
+          setUser(response.user); // Usar datos básicos si el perfil falla
+          await AsyncStorage.setItem('userData', JSON.stringify(response.user));
+        }
+      } else {
+        // Manejar registro exitoso sin login automático (e.g. mostrar mensaje para verificar email o loguear)
+        console.log('🎉 Registro exitoso, por favor inicia sesión.', response);
       }
-      
-      return { success: true, user: response.user || userData };
+      return response; // Devolver la respuesta completa del registro
     } catch (error) {
       console.error('❌ Error en registro:', error);
       console.error('❌ Error name:', error.name);

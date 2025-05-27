@@ -25,14 +25,16 @@ class ApiService {
       const basicAuthCredentials = `${BASIC_AUTH_USERNAME}:${BASIC_AUTH_PASSWORD}`;
       const base64Credentials = Buffer.from(basicAuthCredentials).toString('base64');
       
-      // Si ya existe un header 'Authorization' (del token Bearer), no lo sobrescribimos para Basic Auth
-      // a menos que sea el endpoint de login, que específicamente podría necesitar Basic.
-      // Para simplificar, por ahora, si hay Bearer, se usa Bearer. Si no, se intenta Basic.
-      // Esto podría ser un problema si el login necesita Basic Y hay un token Bearer viejo/inválido.
-      if (!combinedHeaders.Authorization || endpoint === API_CONFIG.ENDPOINTS.LOGIN) {
+      // TEMPORARY DEBUGGING: Always add Basic Auth if no Bearer, OR if endpoint is LOGIN or PROFILE
+      if (!combinedHeaders.Authorization || 
+          endpoint === API_CONFIG.ENDPOINTS.LOGIN || 
+          endpoint === API_CONFIG.ENDPOINTS.PROFILE) {
            combinedHeaders = {
             ...combinedHeaders,
             'Authorization': `Basic ${base64Credentials}`,
+            // Consider if backend needs Content-Type even for GET with Basic Auth, though usually not.
+            // 'Content-Type': 'application/json', // Might be needed by some backends even for GET
+            // 'Accept': 'application/json',
           };
       }
     }

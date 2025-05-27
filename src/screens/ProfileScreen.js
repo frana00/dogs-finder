@@ -14,26 +14,24 @@ const ProfileScreen = () => {
     name: user?.name || '',
     email: user?.email || '',
     phone: user?.phone || '',
-    address: user?.address || '',
   });
   
-  const [editableData, setEditableData] = useState({...userData});
+  const [editableData, setEditableData] = useState({
+    name: user?.name || '',
+    email: user?.email || '',
+    phone: user?.phone || '',
+  });
 
   // Actualizar los datos editables cuando cambie el usuario
   useEffect(() => {
     if (user) {
-      setUserData({
+      const newUserData = {
         name: user.name || '',
         email: user.email || '',
         phone: user.phone || '',
-        address: user.address || '',
-      });
-      setEditableData({
-        name: user.name || '',
-        email: user.email || '',
-        phone: user.phone || '',
-        address: user.address || '',
-      });
+      };
+      setUserData(newUserData);
+      setEditableData(newUserData); // Sincronizar editableData con los nuevos datos del usuario
     }
   }, [user]);
 
@@ -137,7 +135,6 @@ const ProfileScreen = () => {
               <InfoItem icon="person" label="Nombre" value={userData.name} />
               <InfoItem icon="mail" label="Correo" value={userData.email} />
               <InfoItem icon="call" label="Teléfono" value={userData.phone} />
-              <InfoItem icon="location" label="Dirección" value={userData.address} />
             </>
           ) : (
             <>
@@ -157,11 +154,6 @@ const ProfileScreen = () => {
                 value={editableData.phone} 
                 onChangeText={(text) => setEditableData({...editableData, phone: text})} 
                 keyboardType="phone-pad"
-              />
-              <EditableInfoItem 
-                label="Dirección" 
-                value={editableData.address} 
-                onChangeText={(text) => setEditableData({...editableData, address: text})} 
               />
             </>
           )}

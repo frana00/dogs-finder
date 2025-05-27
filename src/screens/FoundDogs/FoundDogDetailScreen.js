@@ -37,10 +37,16 @@ const FoundDogDetailScreen = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  console.log(' FoundDogDetailScreen: Initial dogData from route.params:', JSON.stringify(dogData));
+
   // Estados para imágenes y modal
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedImageIndex, setSelectedImageIndex] = useState(0);
-  const images = Array.isArray(dogData?.photoFilenames) ? dogData.photoFilenames.map(uri => ({ uri })) : [];
+  const images = Array.isArray(dogData?.photoUrls) && dogData.photoUrls.length > 0 
+    ? dogData.photoUrls.map(photo => ({ uri: photo.presignedUrl })) 
+    : [];
+  console.log(' FoundDogDetailScreen: Calculated images:', JSON.stringify(images));
+
   const screenWidth = Dimensions.get('window').width;
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 

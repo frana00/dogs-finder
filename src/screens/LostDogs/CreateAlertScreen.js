@@ -11,7 +11,6 @@ const CreateAlertScreen = ({ navigation }) => {
   try {
     const authContext = useContext(AuthContext);
     
-    // Verificación de seguridad para el contexto
     if (!authContext) {
       console.error('AuthContext not found');
       return (
@@ -23,23 +22,25 @@ const CreateAlertScreen = ({ navigation }) => {
     
     const { user } = authContext;
     
-    // Inicializar states de forma segura
     const [dogName, setDogName] = useState('');
-    const [breed, setBreed] = useState(''); // State for breed
+    const [breed, setBreed] = useState('');
     const [description, setDescription] = useState('');
     const [chip, setChip] = useState('');
-    const [location, setLocation] = useState('');
-    const [postalCode, setPostalCode] = useState(null); // Initialize to null
+    const [locationAddress, setLocationAddress] = useState('');
+    const [postalCode, setPostalCode] = useState('');
+    const [countryCode, setCountryCode] = useState('');
     const [gettingLocation, setGettingLocation] = useState(false);
-    const [photos, setPhotos] = useState([]); // Para varias imágenes (máx 5)
-    const [isLoading, setIsLoading] = useState(false); // Estado para el indicador de carga
+    const [photos, setPhotos] = useState([]); 
+    const [isLoading, setIsLoading] = useState(false);
+    const [title, setTitle] = useState('');
+    const [sex, setSex] = useState('UNKNOWN');
 
     console.log('🔍 CreateAlertScreen: Component rendered, photos:', photos);
     console.log('🔍 CreateAlertScreen: user:', user);
-  console.log('🔍 CreateAlertScreen: photos type:', typeof photos, 'isArray:', Array.isArray(photos));
+    console.log('🔍 CreateAlertScreen: photos type:', typeof photos, 'isArray:', Array.isArray(photos));
 
   useEffect(() => {
-    const getLocation = async () => {
+    const getCurrentLocation = async () => {
       setGettingLocation(true);
       try {
         let { status } = await Location.requestForegroundPermissionsAsync();
@@ -50,26 +51,30 @@ const CreateAlertScreen = ({ navigation }) => {
         }
         let loc = await Location.getCurrentPositionAsync({});
         if (loc && loc.coords) {
-          // Reverse geocoding para obtener dirección legible
           let addresses = await Location.reverseGeocodeAsync({
             latitude: loc.coords.latitude,
             longitude: loc.coords.longitude
           });
           if (addresses && addresses.length > 0) {
             const addr = addresses[0];
-            // Concatenar partes relevantes de la dirección
             const fullAddress = `${addr.street || ''} ${addr.name || ''}, ${addr.city || addr.district || ''}, ${addr.region || ''}, ${addr.country || ''}`.replace(/, ,/g, ',').trim();
-            setLocation(fullAddress);
+            setLocationAddress(fullAddress);
+            setPostalCode(addr.postalCode || '');
+            setCountryCode(addr.isoCountryCode || addr.country || '');
           } else {
-            setLocation(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
+            setLocationAddress(`${loc.coords.latitude.toFixed(5)}, ${loc.coords.longitude.toFixed(5)}`);
+            setPostalCode('');
+            setCountryCode('');
           }
         }
       } catch (e) {
-        Alert.alert('Error', 'No se pudo obtener la ubicación.');
+        Alert.alert('Error', `No se pudo obtener la ubicación: ${e.message}`);
+        setPostalCode('');
+        setCountryCode('');
       }
       setGettingLocation(false);
     };
-    getLocation();
+    getCurrentLocation();
   }, []);
 
   const handleSubmit = async () => {
@@ -77,8 +82,8 @@ const CreateAlertScreen = ({ navigation }) => {
     console.log('🔍 handleSubmit: photos:', photos);
     console.log('🔍 handleSubmit: user:', user);
     
-    if (!dogName || !description || !location) {
-      Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: nombre, descripción y ubicación.');
+    if (!dogName || !description || !locationAddress || !title) {
+      Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: Nombre, Título, Descripción y Ubicación.');
       return;
     }
 
@@ -90,71 +95,61 @@ const CreateAlertScreen = ({ navigation }) => {
     setIsLoading(true);
 
     try {
-      // Paso 1: Crear la alerta con datos textuales
+      const photoFilenames = photos.map(p => p.filename);
+
       const alertData = {
         username: user.username,
         type: 'LOST',
-        chipNumber: chip || null,
+        chipNumber: chip || "",
         status: 'ACTIVE',
-        sex: 'UNKNOWN',
+        sex: sex,
         date: new Date().toISOString(),
-        title: dogName,
-        description: description,
-        breed: breed.trim() || 'Mestizo', // Send breed, default to 'Mestizo' if empty
-        address: location, // Send the full address string from Google Places
+        title: title.trim(),
+        description: description.trim(),
+        breed: breed.trim() || 'Mestizo',
         postalCode: postalCode,
-        countryCode: 'CL', // Placeholder
+        countryCode: countryCode.toUpperCase(),
+        photoFilenames: photoFilenames, // El backend procesará esto y subirá las fotos
       };
 
-      const createdAlert = await apiService.createAlert(alertData);
+      // El backend crea la alerta y maneja la subida de las fotos internamente.
+      // La respuesta debería incluir el ID de la alerta y las URLs finales de las fotos si se subieron.
+      const response = await apiService.createAlert(alertData);
       
-      if (!createdAlert || !createdAlert.id) {
-        throw new Error('No se recibió el ID de la alerta creada');
-      }
+      console.log('Respuesta completa del backend en handleSubmit (LostDog):', JSON.stringify(response));
 
-      // Paso 2: Subir fotos si hay
-      const validPhotos = Array.isArray(photos) ? photos : [];
-      if (validPhotos.length > 0) {
-        let allPhotosUploadedSuccessfully = true;
-        const uploadErrors = [];
-
-        for (const photoUri of validPhotos) {
-          try {
-            await apiService.uploadPhoto(createdAlert.id, photoUri);
-          } catch (uploadError) {
-            allPhotosUploadedSuccessfully = false;
-            uploadErrors.push(uploadError.message);
-            console.error(`Error subiendo foto ${photoUri}:`, uploadError);
+      setIsLoading(false);
+      if (response && response.id) { 
+        let feedbackMessage = `Tu alerta (ID: ${response.id}) ha sido registrada.`;
+        if (photoFilenames.length > 0) {
+          if (response.photoUrls && response.photoUrls.length > 0) {
+            feedbackMessage += `\n${response.photoUrls.length} foto(s) procesada(s).`;
+          } else {
+            feedbackMessage += `\nLas fotos no pudieron ser procesadas por el servidor.`;
+            // Opcional: Podrías querer un manejo de error más específico aquí si las fotos eran esperadas.
           }
         }
 
-        if (!allPhotosUploadedSuccessfully) {
-          Alert.alert(
-            'Subida Incompleta', 
-            `La alerta fue creada pero algunas fotos no pudieron subirse: ${uploadErrors.join(', ')}`,
-            [{ text: 'OK', onPress: () => navigation.goBack() }]
-          );
-        } else {
-          Alert.alert('Alerta Creada', 'Tu alerta y fotos han sido registradas correctamente.', [
-            { text: 'OK', onPress: () => navigation.goBack() }
-          ]);
-        }
-      } else {
-        // No hay fotos para subir
-        Alert.alert('Alerta Creada', 'Tu alerta ha sido registrada correctamente.', [
+        Alert.alert('Alerta Registrada', feedbackMessage, [
           { text: 'OK', onPress: () => navigation.goBack() }
         ]);
+
+        // Limpiar formulario
+        setDogName('');
+        setBreed('');
+        setDescription('');
+        setLocationAddress('');
+        setPostalCode('');
+        setCountryCode('');
+        setChip('');
+        setPhotos([]);
+        setTitle('');
+        setSex('UNKNOWN');
+
+      } else {
+        const errorMessage = response && response.message ? response.message : 'No se pudo obtener el ID de la alerta o hubo un error desconocido.'; 
+        Alert.alert('Error', errorMessage);
       }
-
-      // Limpiar formulario
-      setDogName('');
-      setBreed(''); // Clear breed state
-      setDescription('');
-      setLocation('');
-      setPostalCode(null); // Clear postal code state to null
-      setChip('');
-      setPhotos([]);
-
     } catch (error) {
       console.error('Error en handleSubmit:', error);
       
@@ -173,29 +168,27 @@ const CreateAlertScreen = ({ navigation }) => {
     }
   };
 
-  // Función para elegir imagen
   const pickImage = async () => {
-    // Asegurar que photos siempre sea un array
     const currentPhotos = Array.isArray(photos) ? photos : [];
     if (currentPhotos.length >= 5) return;
     
     let result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsEditing: true,
-      aspect: [1, 1],
+      allowsEditing: false,
       quality: 0.8,
     });
     
     if (!result.canceled && result.assets && result.assets.length > 0) {
-      const newPhotos = [...currentPhotos, result.assets[0].uri];
-      setPhotos(newPhotos.slice(0, 5));
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const filename = asset.fileName || `photo_${Date.now()}.${uri.split('.').pop()}`;
+      
+      setPhotos([...currentPhotos, { uri, filename }].slice(0, 5));
     }
   };
 
-  // Eliminar foto por índice
   const removePhoto = (idx) => {
     setPhotos((prevPhotos) => {
-      // Asegurar que prevPhotos es siempre un array
       const safePhotos = Array.isArray(prevPhotos) ? prevPhotos : [];
       return safePhotos.filter((_, i) => i !== idx);
     });
@@ -214,20 +207,40 @@ const CreateAlertScreen = ({ navigation }) => {
         <Text style={styles.title}>Perro Perdido</Text>
         <Text style={styles.subtitle}>Completa este formulario para avisar a la comunidad que se perdió este perro.</Text>
 
-        <Text style={styles.label}>Nombre del perro</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: Rocky"
-          value={dogName}
-          onChangeText={setDogName}
-        />
-        <Text style={styles.label}>Raza (opcional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: Labrador, Poodle, Mestizo"
-          value={breed}
-          onChangeText={setBreed}
-        />
+        <Text style={styles.label}>Nombre del Perro</Text>
+        <TextInput style={styles.input} placeholder="Ej: Bobby, Luna" value={dogName} onChangeText={setDogName} />
+
+        <Text style={styles.label}>Título de la Alerta</Text>
+        <TextInput style={styles.input} placeholder="Ej: Se busca urgentemente en [Barrio]" value={title} onChangeText={setTitle} />
+
+        <Text style={styles.label}>Raza</Text>
+        <TextInput style={styles.input} placeholder="Ej: Labrador, Mestizo" value={breed} onChangeText={setBreed} />
+
+        <Text style={styles.label}>Sexo del Perro *</Text>
+        <View style={styles.sexSelectorContainer}>
+          <TouchableOpacity 
+            style={[styles.sexOption, sex === 'MALE' && styles.sexOptionSelected]} 
+            onPress={() => setSex('MALE')}
+          >
+            <Text style={[styles.sexOptionText, sex === 'MALE' && styles.sexOptionSelectedText]}>Macho</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.sexOption, sex === 'FEMALE' && styles.sexOptionSelected]} 
+            onPress={() => setSex('FEMALE')}
+          >
+            <Text style={[styles.sexOptionText, sex === 'FEMALE' && styles.sexOptionSelectedText]}>Hembra</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.sexOption, sex === 'UNKNOWN' && styles.sexOptionUnknownSelected]} 
+            onPress={() => setSex('UNKNOWN')}
+          >
+            <Text style={[styles.sexOptionText, sex === 'UNKNOWN' && styles.sexOptionSelectedText]}>No sé</Text>
+          </TouchableOpacity>
+        </View>
+
+        <Text style={styles.label}>Número de Chip (opcional)</Text>
+        <TextInput style={styles.input} placeholder="Número de identificación del chip" value={chip} onChangeText={setChip} keyboardType="numeric" />
+
         <Text style={styles.label}>Descripción</Text>
         <TextInput
           style={styles.input}
@@ -238,14 +251,7 @@ const CreateAlertScreen = ({ navigation }) => {
           numberOfLines={3}
           textAlignVertical="top"
         />
-        <Text style={styles.label}>Número de Chip (opcional)</Text>
-        <TextInput
-          style={styles.input}
-          placeholder="Ej: 900123000123456"
-          value={chip}
-          onChangeText={setChip}
-          keyboardType="numeric"
-        />
+
         <Text style={styles.label}>Ubicación donde se perdió/vio</Text>
         {Constants.expoConfig?.extra?.googlePlacesApiKey ? (
           <GooglePlacesAutocomplete
@@ -256,20 +262,19 @@ const CreateAlertScreen = ({ navigation }) => {
             onPress={(data, details = null) => {
               try {
                 if (details) {
-                  setLocation(details.formatted_address || data.description);
-                  // Extract postal code
+                  setLocationAddress(details.formatted_address || data.description);
                   const postalCodeComponent = details.address_components.find(
                     component => component.types.includes('postal_code')
                   );
                   if (postalCodeComponent) {
                     setPostalCode(postalCodeComponent.long_name || postalCodeComponent.short_name);
                   } else {
-                    setPostalCode(null); // Set to null if not found
+                    setPostalCode(null); 
                     console.warn('Postal code not found in Google Places details');
                   }
                 } else if (data && data.description) {
-                  setLocation(data.description);
-                  setPostalCode(null); // Set to null if only description is available
+                  setLocationAddress(data.description);
+                  setPostalCode(null); 
                 }
               } catch (error) {
                 console.error('Error en GooglePlacesAutocomplete onPress:', error);
@@ -300,8 +305,7 @@ const CreateAlertScreen = ({ navigation }) => {
             suppressDefaultStyles={false}
             textInputProps={{
               onChangeText: (text) => {
-                // Fallback manual para ubicación
-                setLocation(text);
+                setLocationAddress(text);
               }
             }}
           />
@@ -309,15 +313,15 @@ const CreateAlertScreen = ({ navigation }) => {
           <TextInput
             style={styles.input}
             placeholder="Ingresa la ubicación manualmente"
-            value={location}
-            onChangeText={setLocation}
+            value={locationAddress}
+            onChangeText={setLocationAddress}
           />
         )}
         <Text style={styles.label}>Código Postal</Text>
         <TextInput
           style={styles.input}
           placeholder="Ej: 7500000 (Opcional si Google lo encuentra)"
-          value={postalCode || ''} // Show empty string if postalCode is null
+          value={postalCode || ''}
           onChangeText={setPostalCode}
           keyboardType="numeric"
         />
@@ -470,11 +474,36 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     borderRadius: 4,
   },
-  locationLoader: {
-    position: 'absolute',
-    right: 12,
-    top: 16,
+  sexSelectorContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    marginBottom: 16,
   },
+  sexOption: {
+    borderWidth: 1,
+    borderColor: '#ccc',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
+    alignItems: 'center',
+    flex: 1,
+    marginHorizontal: 4,
+  },
+  sexOptionSelected: {
+    backgroundColor: '#FF9800',
+    borderColor: '#FF9800',
+  },
+  sexOptionUnknownSelected: {
+    backgroundColor: '#aaa',
+    borderColor: '#aaa',
+  },
+  sexOptionText: {
+    color: '#333',
+    fontWeight: '500',
+  },
+  sexOptionSelectedText: {
+    color: '#fff',
+  }
 });
 
 export default CreateAlertScreen;

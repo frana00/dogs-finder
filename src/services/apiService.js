@@ -277,6 +277,43 @@ class ApiService {
     return { success: true, s3ObjectKey };
   }
 
+  // Nueva función para subir archivos a S3 usando URL pre-firmada
+  async uploadFileToS3(presignedUrl, fileUri, fileType) {
+    try {
+      // Obtener el blob del archivo desde la URI local
+      const response = await fetch(fileUri);
+      const blob = await response.blob();
+
+      // Subir el archivo a S3 usando la URL pre-firmada
+      const s3Response = await fetch(presignedUrl, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': fileType, // Ej: 'image/jpeg', 'image/png'
+        },
+        body: blob,
+      });
+
+      if (!s3Response.ok) {
+        // Intenta leer el cuerpo del error si es posible
+        let errorBody = '';
+        try {
+          errorBody = await s3Response.text();
+        } catch (e) {
+          // No hacer nada si no se puede leer el cuerpo
+        }
+        console.error('Error en S3 upload:', s3Response.status, errorBody);
+        throw new Error(`Error al subir archivo a S3: ${s3Response.status}. ${errorBody}`);
+      }
+
+      // La subida fue exitosa, no hay cuerpo de respuesta en un PUT exitoso a S3 pre-firmado
+      return { success: true, status: s3Response.status };
+
+    } catch (error) {
+      console.error('Excepción en uploadFileToS3:', error);
+      throw error; // Re-lanzar el error para que el llamador lo maneje
+    }
+  }
+
   // Método para eliminar foto
   async deletePhoto(photoId) {
     const endpoint = API_CONFIG.ENDPOINTS.DELETE_PHOTO.replace('{photoId}', photoId);

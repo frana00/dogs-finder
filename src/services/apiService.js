@@ -25,10 +25,11 @@ class ApiService {
       const basicAuthCredentials = `${BASIC_AUTH_USERNAME}:${BASIC_AUTH_PASSWORD}`;
       const base64Credentials = Buffer.from(basicAuthCredentials).toString('base64');
       
-      // TEMPORARY DEBUGGING: Always add Basic Auth if no Bearer, OR if endpoint is LOGIN or PROFILE
+      // TEMPORARY DEBUGGING: Always add Basic Auth if no Bearer, OR if endpoint is LOGIN, PROFILE or ALERTS
       if (!combinedHeaders.Authorization || 
           endpoint === API_CONFIG.ENDPOINTS.LOGIN || 
-          endpoint === API_CONFIG.ENDPOINTS.PROFILE) {
+          endpoint === API_CONFIG.ENDPOINTS.PROFILE ||
+          endpoint.startsWith(API_CONFIG.ENDPOINTS.ALERTS)) { 
            combinedHeaders = {
             ...combinedHeaders,
             'Authorization': `Basic ${base64Credentials}`,

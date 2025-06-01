@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG, buildUrl } from '../config/api';
 
 /**
  * Photo Service - Simplified for backend integration
@@ -6,7 +6,7 @@ import { API_CONFIG } from '../config/api';
  */
 class PhotoService {
   constructor() {
-    this.baseURL = API_CONFIG.BASE_URL;
+    // No longer storing static URLs - we'll build them dynamically
   }
 
   // Simple headers without authentication requirement
@@ -24,7 +24,7 @@ class PhotoService {
    * @returns {Promise<Array>} Array de objetos con s3ObjectKey y presignedUrl
    */
   async getPresignedUrlsForNewPhotos(alertId, photoFilenames) {
-    const url = `${this.baseURL}/alerts/${alertId}/photos`;
+    const url = await buildUrl(API_CONFIG.ENDPOINTS.UPLOAD_PHOTO_TO_ALERT.replace('{alertId}', alertId));
     const headers = this.getHeaders();
 
     try {

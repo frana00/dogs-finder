@@ -198,10 +198,34 @@ class ApiService {
 
   async updateAlert(id, alertData) {
     const endpoint = API_CONFIG.ENDPOINTS.UPDATE_ALERT.replace('{id}', id);
-    return this.request(endpoint, {
-      method: 'PUT',
-      body: JSON.stringify(alertData),
+    
+    console.log('🔄 updateAlert called with:', {
+      id,
+      endpoint,
+      alertData: JSON.stringify(alertData, null, 2)
     });
+    
+    try {
+      const response = await this.request(endpoint, {
+        method: 'PUT',
+        body: JSON.stringify(alertData),
+      });
+      
+      console.log('✅ updateAlert response:', {
+        response: response,
+        type: typeof response,
+        isNull: response === null
+      });
+      
+      return response;
+    } catch (error) {
+      console.error('❌ updateAlert error:', {
+        error: error.message,
+        stack: error.stack,
+        endpoint
+      });
+      throw error;
+    }
   }
 
   async deleteAlert(id) {
@@ -211,70 +235,115 @@ class ApiService {
     });
   }
 
-  // Método para subir fotos
+  // Método para subir fotos con timeout extendido
   async uploadPhoto(alertId, photoUri) {
-    // Part 1: Call POST /alerts/{alertId}/photos to get the S3 presigned URL and s3ObjectKey
-    const initialEndpoint = API_CONFIG.ENDPOINTS.UPLOAD_PHOTO_TO_ALERT.replace('{alertId}', alertId);
-    const uriParts = photoUri.split('.');
-    const fileType = uriParts[uriParts.length - 1] || 'jpg'; // Default to jpg if no extension
-    const suggestedFilename = `photo_${Date.now()}.${fileType}`;
+    try {
+      // Part 1: Call POST /alerts/{alertId}/photos to get the S3 presigned URL and s3ObjectKey
+      const initialEndpoint = API_CONFIG.ENDPOINTS.UPLOAD_PHOTO_TO_ALERT.replace('{alertId}', alertId);
+      const uriParts = photoUri.split('.');
+      const fileType = uriParts[uriParts.length - 1] || 'jpg'; // Default to jpg if no extension
+      const suggestedFilename = `photo_${Date.now()}.${fileType}`;
 
-    const authHeaders = await this.getAuthHeaders();
+      console.log(`🚀 Step 1: Requesting S3 upload details from ${initialEndpoint} for ${suggestedFilename}`);
+      
+      // Use a custom timeout for photo uploads (60 seconds)
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.error(`❌ Upload request timeout after 60s for ${photoUri}`);
+        controller.abort();
+      }, 60000); // 60 seconds for photo uploads
+      
+      try {
+        // Make the initial request to our backend to get S3 upload details
+        const s3UploadInstructions = await this.requestWithTimeout(initialEndpoint, {
+          method: 'POST',
+          body: JSON.stringify({ photoFilenames: [suggestedFilename] }),
+          signal: controller.signal,
+        }, 60000); // 60 second timeout
 
-    console.log(`🚀 Step 1: Requesting S3 upload details from ${initialEndpoint} for ${suggestedFilename}`);
-    // Make the initial request to our backend to get S3 upload details
-    const s3UploadInstructions = await this.request(initialEndpoint, {
-      method: 'POST',
-      headers: {
-        // this.request will spread its own default headers (including auth if getAuthHeaders is part of it)
-        // Explicitly set Content-Type and Accept for this JSON request
-        ...authHeaders, // Ensure auth headers are included if not automatically by this.request
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({ photoFilenames: [suggestedFilename] }),
-    });
+        clearTimeout(timeoutId);
+        console.log('✅ Received S3 upload instructions:', s3UploadInstructions);
 
-    console.log('✅ Received S3 upload instructions:', s3UploadInstructions);
+        // Expecting response like: [ { "s3ObjectKey": "...", "presignedUrl": "..." } ]
+        if (!s3UploadInstructions || !Array.isArray(s3UploadInstructions) || s3UploadInstructions.length === 0 ||
+            !s3UploadInstructions[0].presignedUrl || !s3UploadInstructions[0].s3ObjectKey) {
+          console.error('❌ Failed to get S3 presigned URL or s3ObjectKey from backend:', s3UploadInstructions);
+          throw new Error('Failed to get S3 upload details from backend.');
+        }
+        
+        const { presignedUrl, s3ObjectKey } = s3UploadInstructions[0];
 
-    // Expecting response like: [ { "s3ObjectKey": "...", "presignedUrl": "..." } ]
-    if (!s3UploadInstructions || !Array.isArray(s3UploadInstructions) || s3UploadInstructions.length === 0 ||
-        !s3UploadInstructions[0].presignedUrl || !s3UploadInstructions[0].s3ObjectKey) {
-      console.error('❌ Failed to get S3 presigned URL or s3ObjectKey from backend:', s3UploadInstructions);
-      throw new Error('Failed to get S3 upload details from backend.');
+        // Part 2: Upload the actual file DIRECTLY to the S3 presigned URL
+        console.log(`🚀 Step 2: Fetching local image blob for ${photoUri}`);
+        const imageResponse = await fetch(photoUri);
+        if (!imageResponse.ok) {
+          console.error(`❌ Failed to fetch local image URI: ${photoUri}, status: ${imageResponse.status}`);
+          throw new Error(`Failed to fetch local image URI: ${photoUri}`);
+        }
+        const imageBlob = await imageResponse.blob();
+        const imageContentType = imageBlob.type || `image/${fileType}`; // Use blob's type, or derive
+
+        console.log(`🚀 Step 3: Uploading to S3 presigned URL: ${presignedUrl.substring(0,100)}... Content-Type: ${imageContentType}`);
+
+        // Upload to S3 with extended timeout
+        const s3Controller = new AbortController();
+        const s3TimeoutId = setTimeout(() => {
+          console.error(`❌ S3 upload timeout after 60s for ${s3ObjectKey}`);
+          s3Controller.abort();
+        }, 60000); // 60 seconds for S3 upload
+
+        const s3Response = await fetch(presignedUrl, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': imageContentType,
+            // No Authorization header for S3 presigned PUT
+          },
+          body: imageBlob,
+          signal: s3Controller.signal,
+        });
+
+        clearTimeout(s3TimeoutId);
+
+        if (!s3Response.ok) {
+          const s3ErrorText = await s3Response.text().catch(() => `S3 upload failed with status ${s3Response.status}`);
+          console.error(`❌ S3 upload failed: ${s3Response.status}, Key: ${s3ObjectKey}, Error: ${s3ErrorText}`);
+          throw new Error(`S3 upload failed: ${s3Response.status}. Details: ${s3ErrorText}`);
+        }
+
+        console.log(`✅ S3 upload successful for objectKey: ${s3ObjectKey}`);
+        return { success: true, s3ObjectKey };
+        
+      } catch (error) {
+        clearTimeout(timeoutId);
+        if (error.name === 'AbortError') {
+          console.error(`❌ Request timeout for photo upload: ${photoUri}`);
+          throw new Error('Request timeout - photo upload took too long');
+        }
+        throw error;
+      }
+      
+    } catch (error) {
+      console.error(`❌ Error in uploadPhoto for ${photoUri}:`, error);
+      throw error;
     }
+  }
+
+  // Helper method for requests with custom timeout
+  async requestWithTimeout(url, options = {}, timeoutMs = API_CONFIG.TIMEOUT) {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
     
-    const { presignedUrl, s3ObjectKey } = s3UploadInstructions[0];
-
-    // Part 2: Upload the actual file DIRECTLY to the S3 presigned URL
-    console.log(`🚀 Step 2: Fetching local image blob for ${photoUri}`);
-    const imageResponse = await fetch(photoUri);
-    if (!imageResponse.ok) {
-      console.error(`❌ Failed to fetch local image URI: ${photoUri}, status: ${imageResponse.status}`);
-      throw new Error(`Failed to fetch local image URI: ${photoUri}`);
+    try {
+      const response = await this.request(url, {
+        ...options,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+      return response;
+    } catch (error) {
+      clearTimeout(timeoutId);
+      throw error;
     }
-    const imageBlob = await imageResponse.blob();
-    const imageContentType = imageBlob.type || `image/${fileType}`; // Use blob's type, or derive
-
-    console.log(`🚀 Step 3: Uploading to S3 presigned URL: ${presignedUrl.substring(0,100)}... Content-Type: ${imageContentType}`);
-
-    const s3Response = await fetch(presignedUrl, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': imageContentType,
-        // No Authorization header for S3 presigned PUT
-      },
-      body: imageBlob,
-    });
-
-    if (!s3Response.ok) {
-      const s3ErrorText = await s3Response.text().catch(() => `S3 upload failed with status ${s3Response.status}`);
-      console.error(`❌ S3 upload failed: ${s3Response.status}, Key: ${s3ObjectKey}, Error: ${s3ErrorText}`);
-      throw new Error(`S3 upload failed: ${s3Response.status}. Details: ${s3ErrorText}`);
-    }
-
-    console.log(`✅ S3 upload successful for objectKey: ${s3ObjectKey}`);
-    return { success: true, s3ObjectKey };
   }
 
   // Nueva función para subir archivos a S3 usando URL pre-firmada
@@ -326,6 +395,57 @@ class ApiService {
   async searchPostcodes(query) {
     const endpoint = `${API_CONFIG.ENDPOINTS.SEARCH_POSTCODES}?q=${encodeURIComponent(query)}`;
     return this.request(endpoint);
+  }
+
+  // Método mejorado para actualizar alerta con manejo de fotos
+  async updateAlertWithPhotos(id, alertData, options = {}) {
+    const { newPhotos = [], photosToDelete = [] } = options;
+    
+    try {
+      // 1. Primero actualizar los datos básicos de la alerta
+      console.log('🔄 Updating alert data for ID:', id);
+      const updatedAlert = await this.updateAlert(id, alertData);
+      
+      // 2. Eliminar fotos marcadas para eliminación
+      if (photosToDelete.length > 0) {
+        console.log('🗑️ Deleting photos:', photosToDelete);
+        for (const photoId of photosToDelete) {
+          try {
+            await this.deletePhoto(photoId);
+            console.log('✅ Photo deleted:', photoId);
+          } catch (error) {
+            console.warn('⚠️ Failed to delete photo:', photoId, error.message);
+            // Continue with other operations even if some deletions fail
+          }
+        }
+      }
+      
+      // 3. Subir nuevas fotos si las hay
+      if (newPhotos.length > 0) {
+        console.log('📸 Uploading new photos for alert:', id);
+        const uploadResults = [];
+        
+        for (const photoUri of newPhotos) {
+          try {
+            const result = await this.uploadPhoto(id, photoUri);
+            uploadResults.push(result);
+            console.log('✅ Photo uploaded:', result);
+          } catch (error) {
+            console.warn('⚠️ Failed to upload photo:', photoUri, error.message);
+            // Continue with other photos even if some uploads fail
+          }
+        }
+        
+        // Add upload results to the response
+        updatedAlert.uploadResults = uploadResults;
+      }
+      
+      return updatedAlert;
+      
+    } catch (error) {
+      console.error('❌ Error in updateAlertWithPhotos:', error);
+      throw error;
+    }
   }
 }
 

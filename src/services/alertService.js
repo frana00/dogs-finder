@@ -1,4 +1,4 @@
-import { API_CONFIG } from '../config/api';
+import { API_CONFIG, buildUrl } from '../config/api';
 import { ALERT_STATUS } from '../constants/index';
 import photoService from './photoService';
 
@@ -7,8 +7,11 @@ import photoService from './photoService';
  */
 class AlertService {
   constructor() {
-    this.baseURL = API_CONFIG.BASE_URL;
-    this.alertsEndpoint = `${this.baseURL}/alerts`;
+    // No longer storing static URLs - we'll build them dynamically
+  }
+
+  async getAlertsEndpoint() {
+    return await buildUrl(API_CONFIG.ENDPOINTS.ALERTS);
   }
 
   async request(url, options = {}) {
@@ -74,20 +77,20 @@ class AlertService {
     try {
       const defaultParams = { status: ALERT_STATUS.ACTIVE, ...params };
       const queryString = new URLSearchParams(defaultParams).toString();
-      const url = queryString ? `${this.alertsEndpoint}?${queryString}` : this.alertsEndpoint;
+      const alertsEndpoint = await this.getAlertsEndpoint();
+      const url = queryString ? `${alertsEndpoint}?${queryString}` : alertsEndpoint;
       
       const response = await this.request(url);
       return response;
     } catch (error) {
-      console.error('Error fetching alerts:', error);
-      
-      // If filtering by type fails, try without type filter
-      if (params.type && error.message.includes('An unexpected error occurred')) {
-        console.log(`Type filter for ${params.type} failed, trying without type filter`);
-        try {
-          const fallbackParams = { status: ALERT_STATUS.ACTIVE };
-          const queryString = new URLSearchParams(fallbackParams).toString();
-          const url = queryString ? `${this.alertsEndpoint}?${queryString}` : this.alertsEndpoint;
+      console.error('Error fetching alerts:', error);        // If filtering by type fails, try without type filter
+        if (params.type && error.message.includes('An unexpected error occurred')) {
+          console.log(`Type filter for ${params.type} failed, trying without type filter`);
+          try {
+            const fallbackParams = { status: ALERT_STATUS.ACTIVE };
+            const queryString = new URLSearchParams(fallbackParams).toString();
+            const alertsEndpoint = await this.getAlertsEndpoint();
+            const url = queryString ? `${alertsEndpoint}?${queryString}` : alertsEndpoint;
           
           const response = await this.request(url);
           
@@ -111,7 +114,7 @@ class AlertService {
 
   async getAlertById(id) {
     try {
-      const url = `${this.alertsEndpoint}/${id}`;
+      const url = await buildUrl(API_CONFIG.ENDPOINTS.GET_ALERT.replace('{id}', id));
       const response = await this.request(url);
       return response;
     } catch (error) {
@@ -126,7 +129,8 @@ class AlertService {
       
       console.log('Creating alert with data:', backendData);
       
-      const response = await this.request(this.alertsEndpoint, {
+      const url = await buildUrl(API_CONFIG.ENDPOINTS.CREATE_ALERT);
+      const response = await this.request(url, {
         method: 'POST',
         body: JSON.stringify(backendData),
       });
@@ -156,12 +160,31 @@ class AlertService {
   async updateAlert(alertId, alertData, photoFiles = []) {
     try {
       const backendData = this.transformToBackendFormat(alertData);
-      const url = `${this.alertsEndpoint}/${alertId}`;
+      const url = await buildUrl(API_CONFIG.ENDPOINTS.UPDATE_ALERT.replace('{id}', alertId));
+      
+      console.log('Updating alert with data:', backendData);
       
       const response = await this.request(url, {
         method: 'PUT',
         body: JSON.stringify(backendData),
       });
+
+      // Handle photo updates if provided
+      if (photoFiles && photoFiles.length > 0) {
+        try {
+          console.log('Uploading photos for updated alert:', alertId);
+          const photoUrls = await photoService.uploadPhotosForAlert(alertId, photoFiles);
+          console.log('Photos uploaded successfully:', photoUrls);
+          
+          // Update response to include photo URLs
+          if (response) {
+            response.photoUrls = photoUrls;
+          }
+        } catch (photoError) {
+          console.warn('Alert updated but photo upload failed:', photoError);
+          // Don't fail the entire operation if photos fail
+        }
+      }
 
       return response;
     } catch (error) {
@@ -172,7 +195,7 @@ class AlertService {
 
   async deleteAlert(alertId) {
     try {
-      const url = `${this.alertsEndpoint}/${alertId}`;
+      const url = await buildUrl(API_CONFIG.ENDPOINTS.DELETE_ALERT.replace('{id}', alertId));
       await this.request(url, { method: 'DELETE' });
       return alertId;
     } catch (error) {

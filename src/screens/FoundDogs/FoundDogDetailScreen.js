@@ -30,7 +30,7 @@ const FOUND_DOG_COLOR_DARK = '#388E3C';
 const FoundDogDetailScreen = ({ navigation }) => {
   const route = useRoute();
   const { dog } = route.params; // Obtener el objeto dog completo
-  const { getAlert } = useAlerts();
+  const { getAlert, deleteAlert } = useAlerts();
   
   // Estados para los datos de la alerta
   const [dogData, setDogData] = useState(dog);
@@ -121,6 +121,56 @@ const FoundDogDetailScreen = ({ navigation }) => {
     setPosts([...posts, newPostEntry]);
     setNewPost(''); setNewPostImage(null); Keyboard.dismiss();
     setTimeout(() => { scrollRef.current?.scrollToEnd({ animated: true }); }, 150);
+  };
+
+  const handleEditAlert = (alertToEdit) => {
+    // Navegar a la pantalla de creación/edición, pasando los datos de la alerta
+    // Asumimos que CreateFoundAlertScreen se adaptará para modo edición
+    navigation.navigate('CreateFoundAlertScreen', { existingAlert: alertToEdit }); 
+    console.log('Editar alerta:', alertToEdit.id);
+    // TODO: Implementar la lógica de edición completa en CreateFoundAlertScreen
+  };
+
+  const handleDeleteAlert = async (alertId) => {
+    Alert.alert(
+      'Confirmar Eliminación',
+      '¿Estás seguro de que quieres eliminar esta alerta? Esta acción no se puede deshacer.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log(`🗑️ Eliminando alerta ${alertId}`);
+              setLoading(true);
+              
+              // Usar el método deleteAlert del contexto
+              await deleteAlert(alertId);
+              
+              console.log(`✅ Alerta ${alertId} eliminada exitosamente`);
+              setLoading(false);
+              
+              Alert.alert(
+                'Alerta Eliminada', 
+                'La alerta ha sido eliminada exitosamente.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } catch (error) {
+              console.error('❌ Error al eliminar la alerta:', error);
+              setLoading(false);
+              Alert.alert(
+                'Error', 
+                `No se pudo eliminar la alerta: ${error.message}`
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -263,6 +313,21 @@ const FoundDogDetailScreen = ({ navigation }) => {
       {/* --- Botón Contactar --- */}
       <TouchableOpacity style={styles.contactButton} onPress={() => navigation.navigate('Chat', { alertId: dogData.id, alertTitle: dogData.title })}>
         <Text style={styles.contactButtonText}>Contactar al Rescatista</Text>
+      </TouchableOpacity>
+
+      {/* --- Botones de Edición y Eliminación --- */}
+      <TouchableOpacity 
+        style={styles.editButton} 
+        onPress={() => handleEditAlert(dogData)}
+      >
+        <Text style={styles.editButtonText}>Editar Alerta</Text>
+      </TouchableOpacity>
+
+      <TouchableOpacity 
+        style={styles.deleteButton} 
+        onPress={() => handleDeleteAlert(dogData.id)}
+      >
+        <Text style={styles.deleteButtonText}>Eliminar Alerta</Text>
       </TouchableOpacity>
 
       {/* --- Sección de Comentarios --- */}
@@ -422,6 +487,32 @@ const styles = StyleSheet.create({
     nextButton: {
       right: 20,
     },
+    editButton: {
+      paddingVertical: 10,
+      marginTop: 15,
+      alignItems: 'center',
+    },
+    deleteButton: {
+      paddingVertical: 10,
+      marginTop: 5,
+      marginBottom: 15,
+      alignItems: 'center',
+    },
+    buttonText: {
+      color: '#FFFFFF',
+      fontSize: 16,
+      fontWeight: 'bold',
+    },
+    editButtonText: {
+      color: '#007AFF',
+      fontSize: 15,
+      fontWeight: '600',
+    },
+    deleteButtonText: {
+      color: '#FF3B30',
+      fontSize: 15,
+      fontWeight: '600',
+    }
 });
 
 export default FoundDogDetailScreen;

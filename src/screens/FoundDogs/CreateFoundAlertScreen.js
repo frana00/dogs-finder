@@ -1,4 +1,4 @@
-import React, { useState, useRef, useContext } from 'react';
+import React, { useState, useRef, useContext, useEffect } from 'react';
 import Constants from 'expo-constants';
 import {
   View,
@@ -21,492 +21,488 @@ import * as Location from 'expo-location';
 import apiService from '../../services/apiService';
 import { AuthContext } from '../../context/AuthContext';
 
-const FoundDogAlertScreen = ({ navigation }) => {
-  try {
-    const authContext = useContext(AuthContext);
-    
-    if (!authContext) {
-      console.error('AuthContext not found in FoundDogAlertScreen');
-      return (
-        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <Text>Error: Contexto de autenticación no disponible</Text>
-        </View>
-      );
+const FoundDogAlertScreen = ({ navigation, route }) => {
+  const authContext = useContext(AuthContext);
+  const { user } = authContext;
+
+  // Determinar si estamos en modo edición y obtener datos existentes
+  const existingAlert = route.params?.existingAlert;
+  const isEditMode = !!existingAlert;
+  const alertId = existingAlert?.id;
+
+  // Estados del formulario inicializados para creación o edición
+  const [title, setTitle] = useState(existingAlert?.title || '');
+  const [description, setDescription] = useState(existingAlert?.description || '');
+  const [photos, setPhotos] = useState(existingAlert?.photoUrls?.map(p => ({ uri: p.presignedUrl, s3ObjectKey: p.s3ObjectKey, id: p.s3ObjectKey })) || []); 
+  const [breed, setBreed] = useState(existingAlert?.breed || '');
+  const [sex, setSex] = useState(existingAlert?.sex || 'UNKNOWN');
+  const [location, setLocation] = useState(existingAlert?.location ? { latitude: existingAlert.location.latitude, longitude: existingAlert.location.longitude } : null);
+  const [locationAddress, setLocationAddress] = useState(existingAlert?.locationAddress || '');
+  const [postalCode, setPostalCode] = useState(existingAlert?.postalCode || '');
+  const [countryCode, setCountryCode] = useState(existingAlert?.countryCode || '');
+
+  // Estados refactorizados para el chip
+  const [chipStatus, setChipStatus] = useState('no_sabe'); // 'si', 'no', 'no_sabe'
+  const [actualChipNumber, setActualChipNumber] = useState(''); // El valor numérico del chip
+
+  // Nuevos estados para manejar la edición de fotos
+  const [photosToDelete, setPhotosToDelete] = useState(new Set()); // Almacena s3ObjectKey de fotos existentes a eliminar
+
+  const [isLoading, setIsLoading] = useState(false);
+  const [errors, setErrors] = useState({});
+
+  const autoCompleteRef = useRef(null);
+
+  useEffect(() => {
+    if (isEditMode && existingAlert) {
+      console.log('CreateFoundAlertScreen en MODO EDICIÓN. Alerta existente:', JSON.stringify(existingAlert));
+      // Inicializar estados del chip basados en existingAlert
+      const ecn = existingAlert.chipNumber;
+      if (ecn && ecn !== 'NO_SABE' && ecn !== 'NO_TIENE_CHIP' && ecn !== 'no_sabe' && ecn !== 'no') {
+        setChipStatus('si');
+        setActualChipNumber(ecn);
+      } else if (ecn === 'NO_SABE' || ecn === 'no_sabe') {
+        setChipStatus('no_sabe');
+        setActualChipNumber('');
+      } else { // Incluye '', 'NO_TIENE_CHIP', 'no', o cualquier otro caso no reconocido como 'si' o 'no_sabe'
+        setChipStatus('no');
+        setActualChipNumber('');
+      }
     }
-    
-    const { user } = authContext;
-    const autoCompleteRef = useRef(null);
-    const [description, setDescription] = useState('');
-    const [locationAddress, setLocationAddress] = useState('');
-    const [postalCode, setPostalCode] = useState('');
-    const [countryCode, setCountryCode] = useState('');
-    const [gettingLocation, setGettingLocation] = useState(false);
-    const [photos, setPhotos] = useState([]); 
-    const [foundDate, setFoundDate] = useState(new Date().toISOString()); 
-    const [chipStatus, setChipStatus] = useState('no_sabe'); 
-    const [chipNumber, setChipNumber] = useState('');
-    const [dogSafe, setDogSafe] = useState('si'); 
-    const [notes, setNotes] = useState('');
-    const [isLoading, setIsLoading] = useState(false);
-    const [title, setTitle] = useState(''); 
-    const [sex, setSex] = useState('UNKNOWN'); 
-    const [breed, setBreed] = useState(''); 
+  }, [isEditMode, existingAlert]);
 
-    const handleUseCurrentLocation = async () => {
-      setGettingLocation(true);
+  const handleUseCurrentLocation = async () => {
+    try {
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permiso denegado', 'No se pudo obtener la ubicación.');
+        return;
+      }
+      let loc = await Location.getCurrentPositionAsync({});
+      const { latitude, longitude } = loc.coords;
+      let address = null;
+      let currentPostalCode = '';
+      let currentCountryCode = '';
       try {
-        let { status } = await Location.requestForegroundPermissionsAsync();
-        if (status !== 'granted') {
-          setGettingLocation(false);
-          Alert.alert('Permiso denegado', 'No se pudo obtener la ubicación.');
-          return;
+        let geo = await Location.reverseGeocodeAsync({ latitude, longitude });
+        if (geo && geo.length > 0) {
+          const addr = geo[0];
+          address = `${addr.street || ''} ${addr.name || ''}, ${addr.city || ''}, ${addr.region || ''}`.replace(/, ,/g, ',').trim();
+          currentPostalCode = addr.postalCode || '';
+          currentCountryCode = addr.isoCountryCode || addr.country || '';
         }
-        let loc = await Location.getCurrentPositionAsync({});
-        const { latitude, longitude } = loc.coords;
-        let address = null;
-        let currentPostalCode = '';
-        let currentCountryCode = '';
-        try {
-          let geo = await Location.reverseGeocodeAsync({ latitude, longitude });
-          if (geo && geo.length > 0) {
-            const addr = geo[0];
-            address = `${addr.street || ''} ${addr.name || ''}, ${addr.city || ''}, ${addr.region || ''}`.replace(/, ,/g, ',').trim();
-            currentPostalCode = addr.postalCode || '';
-            currentCountryCode = addr.isoCountryCode || addr.country || '';
-          }
-        } catch (geoError) { console.error("Error en geocodificación inversa: ", geoError); }
-        const finalAddress = address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
-        setLocationAddress(finalAddress);
-        setPostalCode(currentPostalCode);
-        setCountryCode(currentCountryCode);
-        autoCompleteRef.current?.setAddressText(finalAddress);
-      } catch (e) {
-        Alert.alert('Error', `No se pudo obtener la ubicación: ${e.message}`);
-      }
-      setGettingLocation(false);
-    };
+      } catch (geoError) { console.error("Error en geocodificación inversa: ", geoError); }
+      const finalAddress = address || `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`;
+      setLocationAddress(finalAddress);
+      setPostalCode(currentPostalCode);
+      setCountryCode(currentCountryCode);
+      autoCompleteRef.current?.setAddressText(finalAddress);
+    } catch (e) {
+      Alert.alert('Error', `No se pudo obtener la ubicación: ${e.message}`);
+    }
+  };
 
-    const pickImage = async () => {
-      const currentPhotos = Array.isArray(photos) ? photos : [];
-      if (currentPhotos.length >= 5) return;
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        allowsEditing: false, 
-        quality: 0.8,
-      });
-      if (!result.canceled && result.assets && result.assets.length > 0) {
-        const asset = result.assets[0];
-        const uri = asset.uri;
-        const filename = asset.fileName || `photo_${Date.now()}.${uri.split('.').pop()}`;
-        setPhotos([...currentPhotos, { uri, filename }].slice(0, 5));
-      }
-    };
+  const pickImage = async () => {
+    const currentPhotos = Array.isArray(photos) ? photos : [];
+    if (currentPhotos.length >= 5) return;
+    let result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false, 
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets && result.assets.length > 0) {
+      const asset = result.assets[0];
+      const uri = asset.uri;
+      const filename = asset.fileName || `photo_${Date.now()}.${uri.split('.').pop()}`;
+      setPhotos([...currentPhotos, { uri, filename }].slice(0, 5));
+    }
+  };
 
-    const removePhoto = (idx) => {
-      setPhotos((prevPhotos) => {
-        const safePhotos = Array.isArray(prevPhotos) ? prevPhotos : [];
-        return safePhotos.filter((_, i) => i !== idx);
-      });
-    };
+  const removePhoto = (photoToRemove) => {
+    if (photoToRemove.s3ObjectKey) { // Es una foto existente
+      setPhotosToDelete(prev => new Set(prev).add(photoToRemove.s3ObjectKey));
+      // También la quitamos de 'photos' para que desaparezca de la UI inmediatamente
+      setPhotos(prevPhotos => prevPhotos.filter(p => p.s3ObjectKey !== photoToRemove.s3ObjectKey));
+    } else { // Es una foto nueva, aún no subida
+      setPhotos(prevPhotos => prevPhotos.filter(p => p.uri !== photoToRemove.uri));
+    }
+  };
 
-    const handleSubmit = async () => {
-      console.log('🚀 handleSubmit FoundDog: Starting...');
-      console.log('🔍 Values before validation:');
-      console.log('  - Title:', title);
-      console.log('  - Description:', description);
-      console.log('  - LocationAddress:', locationAddress);
-      console.log('  - PostalCode:', postalCode);
+  const handleSubmit = async () => {
+    console.log('USER OBJECT INSIDE HANDLE_SUBMIT:', JSON.stringify(user, null, 2)); // LOG DEL USER DENTRO DE HANDLESUBMIT
+    console.log('🚀 handleSubmit FoundDog: Starting...');
+    console.log('🔍 Values before validation:');
+    console.log('  - Title:', title);
+    console.log('  - Description:', description);
+    console.log('  - LocationAddress:', locationAddress);
+    console.log('  - PostalCode:', postalCode);
 
-      if (!user || !user.username) {
-        Alert.alert('Error de autenticación', 'Por favor, inicia sesión para crear una alerta.');
-        return;
-      }
+    if (!user || !user.username) {
+      Alert.alert('Error de autenticación', 'Por favor, inicia sesión para crear una alerta.');
+      return;
+    }
 
-      if (!description || !locationAddress || !title.trim() || !postalCode.trim()) {
-        Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: Título, Descripción, Ubicación y Código Postal.');
-        return;
-      }
+    let newErrors = {};
+    if (!title.trim()) newErrors.title = 'El título es requerido.';
+    if (!description.trim()) newErrors.description = 'La descripción es requerida.';
+    if (!locationAddress) newErrors.locationAddress = 'La dirección es requerida.';
+    if (!postalCode) newErrors.postalCode = 'El código postal es requerido.';
+    // No validamos photos aquí porque en edición podrían no añadirse nuevas
 
+    const currentErrors = newErrors;
+    console.log('VALIDATION ERRORS:', JSON.stringify(currentErrors, null, 2)); // LOG DE ERRORES DE VALIDACIÓN
+    setErrors(currentErrors);
+
+    if (Object.keys(currentErrors).length > 0) {
+      return;
+    }
+
+    try {
       setIsLoading(true);
-
-      try {
-        const photoFilenames = photos.map(p => p.filename);
-        let fullDescription = description.trim();
-        if (notes.trim()) {
-          fullDescription += `\nNotas Adicionales: ${notes.trim()}`;
-        }
-        fullDescription += dogSafe === 'si' ? ' (El perro está resguardado)' : ' (El perro NO está resguardado, podría necesitar ayuda urgente)';
-
-        const alertData = {
-          username: user.username,
+      if (isEditMode && alertId) {
+        // Lógica de Actualización (PUT /alerts/{id})
+        const textDataToUpdate = {
+          username: user?.email,
           type: 'SEEN',
-          chipNumber: chipStatus === 'si' ? chipNumber.trim() : "",
           status: 'ACTIVE',
-          sex: sex, 
-          date: new Date(foundDate).toISOString(), 
-          title: title.trim(), 
-          description: fullDescription,
-          breed: breed.trim() || 'Mestizo', 
-          postalCode: postalCode, 
-          countryCode: countryCode.toUpperCase(), 
-          photoFilenames: photoFilenames, // El backend procesará esto
+          title,
+          description,
+          breed,
+          sex,
+          chipNumber: chipStatus === 'si' ? actualChipNumber : (chipStatus === 'no_sabe' ? 'NO_SABE' : 'NO_TIENE_CHIP'),
+          location,
+          locationAddress,
+          postalCode,
+          countryCode,
+          date: existingAlert?.date,
+        };
+        
+        console.log(`MODO EDICIÓN: Alert ID: ${alertId}`);
+        console.log('MODO EDICIÓN: textDataToUpdate:', JSON.stringify(textDataToUpdate, null, 2));
+
+        // Preparar fotos nuevas (solo URIs locales sin s3ObjectKey)
+        const newLocalPhotos = photos
+          .filter(p => p.uri && !p.s3ObjectKey && p.uri.startsWith('file:'))
+          .map(p => p.uri);
+        
+        // Preparar fotos para eliminar (s3ObjectKeys marcados para eliminación)
+        const photosToDeleteArray = Array.from(photosToDelete);
+
+        console.log('MODO EDICIÓN: Nuevas fotos a subir:', newLocalPhotos);
+        console.log('MODO EDICIÓN: Fotos a eliminar:', photosToDeleteArray);
+
+        try {
+          const updateResponse = await apiService.updateAlertWithPhotos(alertId, textDataToUpdate, {
+            newPhotos: newLocalPhotos,
+            photosToDelete: photosToDeleteArray
+          });
+          
+          console.log('✅ Respuesta de updateAlertWithPhotos:', updateResponse);
+          
+          setIsLoading(false);
+          Alert.alert(
+            'Alerta Actualizada',
+            `La alerta ha sido actualizada exitosamente.`, 
+            [{ text: 'OK', onPress: () => navigation.goBack() }]
+          );
+          
+        } catch (error) {
+          console.error('❌ ERROR en updateAlertWithPhotos:', error);
+          setIsLoading(false);
+          Alert.alert('Error al Actualizar', `Hubo un problema al actualizar la alerta: ${error.message}`);
+        }
+
+      } else {
+        const alertData = {
+          username: user?.email, // CAMBIADO A user.email PARA PRUEBA Y CONSISTENCIA
+          type: 'SEEN',
+          status: 'ACTIVE',
+          title,
+          description,
+          breed,
+          sex,
+          // Chip number logic for creation
+          chipNumber: chipStatus === 'si' ? actualChipNumber : (chipStatus === 'no_sabe' ? 'NO_SABE' : 'NO_TIENE_CHIP'),
+          location, // Objeto { latitude, longitude }
+          locationAddress,
+          postalCode,
+          countryCode,
+          date: new Date().toISOString(), // Para nuevas alertas, usar la fecha actual
+          photoFilenames: photos.filter(p => !p.s3ObjectKey).map(photo => photo.filename || photo.uri.split('/').pop()), 
         };
 
-        // El backend crea la alerta y maneja la subida de las fotos internamente.
+        console.log('Datos a enviar:', JSON.stringify(alertData)); 
+        console.log('Fotos actuales (estado):', JSON.stringify(photos)); 
+
         const response = await apiService.createAlert(alertData);
-        
-        console.log('Respuesta completa del backend en handleSubmit:', JSON.stringify(response)); // DEBUG
+        console.log('Respuesta completa del backend en handleSubmit:', JSON.stringify(response)); 
 
         setIsLoading(false);
         if (response && response.id) {
-          // Éxito al crear la alerta en la BD, ahora subir fotos a S3 si hay
           let allUploadsSuccessful = true;
-          if (response.photoUrls && response.photoUrls.length > 0 && photos.length > 0) {
-            console.log('Iniciando subida de fotos a S3...');
-            setIsLoading(true); // Mostrar indicador de carga para las subidas S3
+          if (response.photoUrls && response.photoUrls.length > 0 && photos.filter(p => !p.s3ObjectKey).length > 0) {
+            console.log('Iniciando subida de fotos NUEVAS a S3...');
+            setIsLoading(true); 
             try {
+              const newPhotosToUpload = photos.filter(p => !p.s3ObjectKey);
               for (let i = 0; i < response.photoUrls.length; i++) {
-                const photoDataForS3 = response.photoUrls[i];
-                const localPhoto = photos[i]; // Asumimos que el orden coincide
+                const photoDataForS3 = response.photoUrls[i]; 
+                const localPhoto = newPhotosToUpload.find(p => (p.filename || p.uri.split('/').pop()) === photoDataForS3.s3ObjectKey.split('__').pop()); 
 
                 if (photoDataForS3 && photoDataForS3.presignedUrl && localPhoto && localPhoto.uri) {
-                  console.log(`Subiendo foto ${i + 1} a ${photoDataForS3.presignedUrl}`);
-                  // Determinar fileType (MIME type)
-                  let fileType = localPhoto.type || 'image/jpeg'; // Default a jpeg
+                  console.log(`Subiendo NUEVA foto ${i + 1} (${localPhoto.uri}) a ${photoDataForS3.presignedUrl}`);
+                  let fileType = localPhoto.type || 'image/jpeg';
                   if (localPhoto.uri.endsWith('.png')) fileType = 'image/png';
                   else if (localPhoto.uri.endsWith('.jpg') || localPhoto.uri.endsWith('.jpeg')) fileType = 'image/jpeg';
-                  // Puedes añadir más tipos si es necesario o usar una librería para detectar MIME
-
                   await uploadToS3(photoDataForS3.presignedUrl, localPhoto.uri, fileType);
                 } else {
-                  console.warn(`Datos incompletos para subir foto ${i + 1}:`, { photoDataForS3, localPhoto });
+                  console.warn(`Datos incompletos para subir NUEVA foto ${i + 1}:`, { photoDataForS3, localPhoto });
                 }
               }
             } catch (uploadError) {
-              console.error('Error durante la subida de una o más fotos a S3:', uploadError);
+              console.error('Error durante la subida de una o más fotos NUEVAS a S3:', uploadError);
               allUploadsSuccessful = false;
-              Alert.alert('Error de Subida', 'La alerta se creó, pero ocurrió un error al subir una o más fotos. Por favor, intenta editar la alerta para añadir las fotos.');
+              Alert.alert('Error de Subida', 'La alerta se creó, pero ocurrió un error al subir una o más fotos nuevas. Por favor, intenta editar la alerta para añadir las fotos.');
             }
             setIsLoading(false);
           }
 
           if (allUploadsSuccessful) {
-            const photoInfoForDebug = response.photoUrls ? JSON.stringify(response.photoUrls) : (response.photos ? JSON.stringify(response.photos) : 'No photo data');
             Alert.alert(
               'Alerta Registrada',
-              `ID: ${response.id}. Fotos procesadas y subidas: ${photoInfoForDebug}`,
+              `ID: ${response.id}. Fotos procesadas y subidas.`,
               [{ text: 'OK', onPress: () => navigation.goBack() }]
             );
-          } // El caso de error de subida ya mostró una alerta
+          } 
           
         } else {
           const errorMessage = response && response.message ? response.message : 'No se pudo obtener el ID de la alerta o hubo un error desconocido.';
           Alert.alert('Error', errorMessage);
         }
-
-        // Limpiar formulario
-        setDescription('');
-        setLocationAddress('');
-        setPostalCode('');
-        setCountryCode('');
-        setPhotos([]);
-        setFoundDate(new Date().toISOString()); 
-        setChipStatus('no_sabe');
-        setChipNumber('');
-        setDogSafe('si');
-        setNotes('');
-        setTitle('');
-        setSex('UNKNOWN');
-        setBreed('');
-
-      } catch (error) {
-        console.error('Error en handleSubmit:', error);
-        let errorMessage = 'No se pudo crear la alerta.';
-        if (error.message === 'TOKEN_EXPIRED') {
-          errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
-        } else if (error.message.includes('network') || error.message.includes('fetch')) {
-          errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
-        } else if (error.message) {
-          errorMessage = error.message;
-        }
-
-        Alert.alert('Error', errorMessage);
       }
-    };
+    } catch (error) {
+      setIsLoading(false);
+      let errorMessage = 'No se pudo crear la alerta.';
+      if (error.message === 'TOKEN_EXPIRED') {
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+      } else if (error.message.includes('network') || error.message.includes('fetch')) {
+        errorMessage = 'Error de conexión. Verifica tu conexión a internet.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
 
-    return (
-      <KeyboardAvoidingView
-        style={{ flex: 1, backgroundColor: '#fff' }}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
-      >
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <ScrollView 
-            contentContainerStyle={{ padding: 20, paddingBottom: 160 }} 
-            keyboardShouldPersistTaps="handled"
-            nestedScrollEnabled={true}
-            showsVerticalScrollIndicator={false}
-          >
-            <Text style={styles.title}>Perro Encontrado</Text>
-            <Text style={styles.subtitle}>Completa este formulario para ayudar a este perro a volver a casa.</Text>
+      Alert.alert('Error', errorMessage);
+    }
+  };
 
-            <Text style={styles.label}>Título de la Alerta</Text>
-            <TextInput
-              style={[styles.input, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
-              placeholder="Ej: Encontrado perro pequeño en [Parque]"
-              value={title}
-              onChangeText={setTitle}
-            />
+  return (
+    <KeyboardAvoidingView
+      style={{ flex: 1, backgroundColor: '#fff' }}
+      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
+    >
+      <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+        <ScrollView 
+          contentContainerStyle={{ padding: 20, paddingBottom: 160 }} 
+          keyboardShouldPersistTaps="handled"
+          nestedScrollEnabled={true}
+          showsVerticalScrollIndicator={false}
+        >
+          <Text style={styles.title}>Perro Encontrado</Text>
+          <Text style={styles.subtitle}>Completa este formulario para ayudar a este perro a volver a casa.</Text>
 
-            <Text style={styles.label}>Descripción Principal</Text>
-            <TextInput
-              style={[styles.input, { minHeight: 80, textAlignVertical: 'top', alignSelf: 'center', width: 340, maxWidth: '95%' }]}
-              placeholder="Describe al perro: color, tamaño, comportamiento, collar, etc."
-              value={description}
-              onChangeText={setDescription}
-              multiline
-            />
+          <Text style={styles.label}>Título de la Alerta</Text>
+          <TextInput
+            style={[styles.input, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
+            placeholder="Ej: Encontrado perro pequeño en [Parque]"
+            value={title}
+            onChangeText={setTitle}
+          />
 
-            <Text style={styles.label}>Raza (si se conoce)</Text>
-            <TextInput
-              style={[styles.input, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
-              placeholder="Ej: Labrador, Mestizo"
-              value={breed}
-              onChangeText={setBreed}
-            />
+          <Text style={styles.label}>Descripción Principal</Text>
+          <TextInput
+            style={[styles.input, { minHeight: 80, textAlignVertical: 'top', alignSelf: 'center', width: 340, maxWidth: '95%' }]}
+            placeholder="Describe al perro: color, tamaño, comportamiento, collar, etc."
+            value={description}
+            onChangeText={setDescription}
+            multiline
+          />
 
-            <Text style={styles.label}>Sexo del Perro Encontrado</Text>
-            <View style={styles.sexSelectorContainer}>
-              <TouchableOpacity 
-                style={[styles.sexOption, sex === 'MALE' && styles.sexOptionSelectedFound]} 
-                onPress={() => setSex('MALE')}
-              >
-                <Text style={[styles.chipOptionText, sex === 'MALE' && styles.sexOptionSelectedText]}>Macho</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.sexOption, sex === 'FEMALE' && styles.sexOptionSelectedFound]} 
-                onPress={() => setSex('FEMALE')}
-              >
-                <Text style={[styles.chipOptionText, sex === 'FEMALE' && styles.sexOptionSelectedText]}>Hembra</Text>
-              </TouchableOpacity>
-              <TouchableOpacity 
-                style={[styles.sexOption, sex === 'UNKNOWN' && styles.sexOptionUnknownSelectedFound]} 
-                onPress={() => setSex('UNKNOWN')}
-              >
-                <Text style={[styles.chipOptionText, sex === 'UNKNOWN' && styles.sexOptionSelectedText]}>No sé</Text>
-              </TouchableOpacity>
-            </View>
+          <Text style={styles.label}>Raza (si se conoce)</Text>
+          <TextInput
+            style={[styles.input, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
+            placeholder="Ej: Labrador, Mestizo"
+            value={breed}
+            onChangeText={setBreed}
+          />
 
-            <Text style={styles.label}>Fecha y Hora en que fue Encontrado</Text>
-            <TextInput
-              style={[styles.input, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
-              value={foundDate.slice(0,16).replace('T', ' ')} 
-              placeholder="YYYY-MM-DDTHH:MM"
-              onChangeText={(text) => setFoundDate(text)} 
-            />
-
-            <Text style={styles.label}>Ubicación donde se encontró</Text>
-            <GooglePlacesAutocomplete
-              ref={autoCompleteRef}
-              placeholder="Buscar dirección..."
-              minLength={3}
-              fetchDetails={true}
-              onPress={(data, details = null) => {
-                console.log('GooglePlacesAutocomplete onPress triggered');
-                console.log('  - data:', JSON.stringify(data));
-                console.log('  - details:', JSON.stringify(details));
-                if (details) {
-                  const addressToSet = details.formatted_address || data.description;
-                  console.log('  - Setting locationAddress (from details):', addressToSet);
-                  setLocationAddress(addressToSet);
-                  setPostalCode(details.address_components?.find(comp => comp.types.includes('postal_code'))?.short_name || '');
-                  setCountryCode(details.address_components?.find(comp => comp.types.includes('country'))?.short_name || '');
-                } else {
-                  const addressToSet = data.description;
-                  console.log('  - Setting locationAddress (from data.description as fallback):', addressToSet);
-                  setLocationAddress(addressToSet);
-                }
-                Keyboard.dismiss();
-              }}
-              query={{
-                key: Constants.expoConfig.extra.googlePlacesApiKey,
-                language: 'es',
-                components: 'country:cl',
-              }}
-              styles={{
-                textInput: styles.input,
-                listView: { 
-                  zIndex: 1000,
-                  elevation: 1000,
-                  position: 'absolute',
-                  top: 50,
-                  backgroundColor: 'white',
-                  borderWidth: 1,
-                  borderColor: '#ccc',
-                  borderRadius: 8,
-                },
-              }}
-              enablePoweredByContainer={false}
-              predefinedPlaces={[]} 
-              textInputProps={{}} 
-              debounce={300}
-              listViewDisplayed="auto"
-              keyboardShouldPersistTaps="handled"
-              suppressDefaultStyles={false}
-            />
-            <View style={{ height: 60 }} />
-            <TouchableOpacity
-              style={styles.geoButton}
-              onPress={handleUseCurrentLocation}
-              disabled={gettingLocation}
+          <Text style={styles.label}>Sexo del Perro Encontrado</Text>
+          <View style={styles.sexSelectorContainer}>
+            <TouchableOpacity 
+              style={[styles.sexOption, sex === 'MALE' && styles.sexOptionSelectedFound]} 
+              onPress={() => setSex('MALE')}
             >
-              {gettingLocation ? (
-                <ActivityIndicator size="small" color="#444" />
-              ) : (
-                <Text style={styles.geoButtonText}>Usar mi ubicación actual</Text>
-              )}
+              <Text style={[styles.chipOptionText, sex === 'MALE' && styles.sexOptionSelectedText]}>Macho</Text>
             </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.sexOption, sex === 'FEMALE' && styles.sexOptionSelectedFound]} 
+              onPress={() => setSex('FEMALE')}
+            >
+              <Text style={[styles.chipOptionText, sex === 'FEMALE' && styles.sexOptionSelectedText]}>Hembra</Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.sexOption, sex === 'UNKNOWN' && styles.sexOptionUnknownSelectedFound]} 
+              onPress={() => setSex('UNKNOWN')}
+            >
+              <Text style={[styles.chipOptionText, sex === 'UNKNOWN' && styles.sexOptionSelectedText]}>No sé</Text>
+            </TouchableOpacity>
+          </View>
 
-            <Text style={styles.label}>Código Postal *</Text>
+          <Text style={styles.label}>Ubicación donde se encontró</Text>
+          <GooglePlacesAutocomplete
+            ref={autoCompleteRef}
+            placeholder="Buscar dirección..."
+            minLength={3}
+            fetchDetails={true}
+            onPress={(data, details = null) => {
+              console.log('GooglePlacesAutocomplete onPress triggered');
+              console.log('  - data:', JSON.stringify(data));
+              console.log('  - details:', JSON.stringify(details));
+              if (details) {
+                const addressToSet = details.formatted_address || data.description;
+                console.log('  - Setting locationAddress (from details):', addressToSet);
+                setLocationAddress(addressToSet);
+                setPostalCode(details.address_components?.find(comp => comp.types.includes('postal_code'))?.short_name || '');
+                setCountryCode(details.address_components?.find(comp => comp.types.includes('country'))?.short_name || '');
+              } else {
+                const addressToSet = data.description;
+                console.log('  - Setting locationAddress (from data.description as fallback):', addressToSet);
+                setLocationAddress(addressToSet);
+              }
+              Keyboard.dismiss();
+            }}
+            query={{
+              key: Constants.expoConfig.extra.googlePlacesApiKey,
+              language: 'es',
+              components: 'country:cl',
+            }}
+            styles={{
+              textInput: styles.input,
+              listView: { 
+                zIndex: 1000,
+                elevation: 1000,
+                position: 'absolute',
+                top: 50,
+                backgroundColor: 'white',
+                borderWidth: 1,
+                borderColor: '#ccc',
+                borderRadius: 8,
+              },
+            }}
+            enablePoweredByContainer={false}
+            predefinedPlaces={[]} 
+            textInputProps={{}} 
+            debounce={300}
+            listViewDisplayed="auto"
+            keyboardShouldPersistTaps="handled"
+            suppressDefaultStyles={false}
+          />
+          <View style={{ height: 60 }} />
+          <TouchableOpacity
+            style={styles.geoButton}
+            onPress={handleUseCurrentLocation}
+          >
+            <Text style={styles.geoButtonText}>Usar mi ubicación actual</Text>
+          </TouchableOpacity>
+
+          <Text style={styles.label}>Código Postal *</Text>
+          <TextInput
+            style={styles.input}
+            placeholder="Ej: 9876543"
+            value={postalCode}
+            onChangeText={setPostalCode}
+            keyboardType="numeric" 
+          />
+
+          <Text style={styles.label}>Fotos (máx. 5)</Text>
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginVertical: 12 }}>
+            {photos.map((photoItem, idx) => (
+              <View key={photoItem.id || photoItem.uri} style={{ marginRight: 8, marginBottom: 8, position: 'relative' }}>
+                <Image source={{ uri: photoItem.uri }} style={{ width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#ccc' }} />
+                <TouchableOpacity
+                  onPress={() => removePhoto(photoItem)} // Pasar el objeto photoItem completo
+                  style={styles.removePhotoButton}
+                >
+                  <Text style={styles.removePhotoButtonText}>×</Text>
+                </TouchableOpacity>
+              </View>
+            ))}
+            {photos.length < 5 && (
+              <TouchableOpacity
+                style={{
+                  backgroundColor: '#eee',
+                  borderRadius: 8,
+                  paddingVertical: 10,
+                  paddingHorizontal: 18,
+                  alignSelf: 'flex-start',
+                  marginBottom: 8,
+                  marginTop: 4,
+                }}
+                onPress={pickImage}
+                activeOpacity={0.8}
+              >
+                <Text style={{ color: '#333', fontWeight: '500', fontSize: 15 }}>Agregar foto</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+
+          <Text style={styles.label}>¿El perro tiene chip?</Text>
+          <View style={{ flexDirection: 'row', marginBottom: 8 }}>
+            <TouchableOpacity
+              style={[styles.chipOption, chipStatus === 'no_sabe' && styles.chipOptionSelected]}
+              onPress={() => setChipStatus('no_sabe')}
+            >
+              <Text style={styles.chipOptionText}>No sé</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chipOption, chipStatus === 'si' && styles.chipOptionSelected]}
+              onPress={() => setChipStatus('si')}
+            >
+              <Text style={styles.chipOptionText}>Sí</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.chipOption, chipStatus === 'no' && styles.chipOptionSelected]}
+              onPress={() => setChipStatus('no')}
+            >
+              <Text style={styles.chipOptionText}>No</Text>
+            </TouchableOpacity>
+          </View>
+          {chipStatus === 'si' && (
             <TextInput
               style={styles.input}
-              placeholder="Ej: 9876543"
-              value={postalCode}
-              onChangeText={setPostalCode}
-              keyboardType="numeric" // O "default" si puede tener letras
+              value={actualChipNumber} // Usar actualChipNumber
+              onChangeText={setActualChipNumber} // Modificar actualChipNumber
+              placeholder="Número de chip (si lo tienes)"
+              keyboardType="numeric"
             />
+          )}
 
-            <Text style={styles.label}>Fotos (máx 5)</Text>
-            <TouchableOpacity
-              style={[styles.uploadButton, (Array.isArray(photos) ? photos.length : 0) >= 5 && { opacity: 0.5 }]}
-              onPress={pickImage}
-              activeOpacity={0.8}
-              disabled={(Array.isArray(photos) ? photos.length : 0) >= 5}
-            >
-              <Text style={styles.uploadButtonText}>Agregar foto</Text>
-            </TouchableOpacity>
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginVertical: 12 }}>
-              {Array.isArray(photos) && photos.map((uri, idx) => (
-                <View key={uri.uri} style={{ marginRight: 8, marginBottom: 8 }}>
-                  <Image source={{ uri: uri.uri }} style={{ width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#ccc' }} />
-                  <TouchableOpacity
-                    onPress={() => removePhoto(idx)}
-                    style={{
-                      position: 'absolute',
-                      top: -10,
-                      right: -10,
-                      backgroundColor: 'rgba(255,0,0,0.85)',
-                      borderRadius: 14,
-                      width: 28,
-                      height: 28,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      zIndex: 10,
-                      elevation: 2,
-                      shadowColor: '#000',
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.2,
-                      shadowRadius: 2,
-                    }}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={{ color: '#fff', fontWeight: 'bold', fontSize: 18, lineHeight: 18 }}>×</Text>
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
-
-            <Text style={styles.label}>¿El perro tiene chip?</Text>
-            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-              <TouchableOpacity
-                style={[styles.chipOption, chipStatus === 'no_sabe' && styles.chipOptionSelected]}
-                onPress={() => setChipStatus('no_sabe')}
-              >
-                <Text style={styles.chipOptionText}>No sé</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chipOption, chipStatus === 'si' && styles.chipOptionSelected]}
-                onPress={() => setChipStatus('si')}
-              >
-                <Text style={styles.chipOptionText}>Sí</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chipOption, chipStatus === 'no' && styles.chipOptionSelected]}
-                onPress={() => setChipStatus('no')}
-              >
-                <Text style={styles.chipOptionText}>No</Text>
-              </TouchableOpacity>
-            </View>
-            {chipStatus === 'si' && (
-              <TextInput
-                style={styles.input}
-                value={chipNumber}
-                onChangeText={setChipNumber}
-                placeholder="Número de chip (si lo tienes)"
-              />
+          <TouchableOpacity
+            style={[styles.button, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
+            onPress={handleSubmit}
+            activeOpacity={0.8}
+            disabled={isLoading}
+          >
+            {isLoading ? (
+              <ActivityIndicator size="small" color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>{isEditMode ? 'Guardar Cambios' : 'Crear Alerta'}</Text>
             )}
-
-            <Text style={styles.label}>¿El perro está seguro contigo?</Text>
-            <View style={{ flexDirection: 'row', marginBottom: 8 }}>
-              <TouchableOpacity
-                style={[styles.chipOption, dogSafe === 'si' && styles.chipOptionSelected]}
-                onPress={() => setDogSafe('si')}
-              >
-                <Text style={styles.chipOptionText}>Sí, lo tengo en casa/refugio</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[styles.chipOption, dogSafe === 'no' && styles.chipOptionSelected]}
-                onPress={() => setDogSafe('no')}
-              >
-                <Text style={styles.chipOptionText}>No, sigue en la calle</Text>
-              </TouchableOpacity>
-            </View>
-
-            <Text style={styles.label}>Notas adicionales</Text>
-            <TextInput
-              style={[styles.input, { minHeight: 60, textAlignVertical: 'top', alignSelf: 'center', width: 340, maxWidth: '95%' }]}
-              placeholder="Cualquier otro dato relevante"
-              value={notes}
-              onChangeText={setNotes}
-              multiline
-              returnKeyType="done"
-              onSubmitEditing={Keyboard.dismiss}
-            />
-            <TouchableOpacity
-              style={[styles.button, { alignSelf: 'center', width: 340, maxWidth: '95%' }]}
-              onPress={handleSubmit}
-              activeOpacity={0.8}
-              disabled={isLoading}
-            >
-              {isLoading ? (
-                <ActivityIndicator size="small" color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Crear Alerta</Text>
-              )}
-            </TouchableOpacity>        
-          </ScrollView>
-        </TouchableWithoutFeedback>
-      </KeyboardAvoidingView>
-    );
-  } catch (error) {
-    console.error('Error en CreateFoundAlertScreen:', error);
-    return (
-      <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-        <Text style={{ fontSize: 18, color: 'red', textAlign: 'center', marginBottom: 16 }}>
-          Error al cargar la pantalla
-        </Text>
-        <Text style={{ fontSize: 14, color: '#666', textAlign: 'center' }}>
-          {error.message || 'Ha ocurrido un error inesperado'}
-        </Text>
-        <TouchableOpacity 
-          style={{ marginTop: 20, padding: 12, backgroundColor: '#FF9800', borderRadius: 8 }}
-          onPress={() => navigation.goBack()}
-        >
-          <Text style={{ color: 'white', fontSize: 16 }}>Volver</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
+          </TouchableOpacity>        
+        </ScrollView>
+      </TouchableWithoutFeedback>
+    </KeyboardAvoidingView>
+  );
 };
 
 const styles = StyleSheet.create({
@@ -537,20 +533,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     marginBottom: 8,
     backgroundColor: '#fafafa',
-  },
-  uploadButton: {
-    backgroundColor: '#eee',
-    borderRadius: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 18,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-    marginTop: 4,
-  },
-  uploadButtonText: {
-    color: '#333',
-    fontWeight: '500',
-    fontSize: 15,
   },
   geoButton: {
     backgroundColor: '#4CAF50', 
@@ -623,11 +605,28 @@ const styles = StyleSheet.create({
     fontSize: 18,
     textAlign: 'center',
   },
-  fieldHelp: {
-    fontSize: 12,
-    color: '#888',
-    marginBottom: 6,
-    marginLeft: 2,
+  removePhotoButton: {
+    position: 'absolute',
+    top: -10,
+    right: -10,
+    backgroundColor: 'rgba(255,0,0,0.85)',
+    borderRadius: 14,
+    width: 28,
+    height: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 10,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
+  },
+  removePhotoButtonText: {
+    color: '#fff',
+    fontWeight: 'bold',
+    fontSize: 18,
+    lineHeight: 18, // Ajustar para centrar la '×'
   },
 });
 
@@ -656,11 +655,11 @@ async function uploadToS3(presignedUrl, localFileUri, fileType) {
       console.error(`Error subiendo a S3 (status ${uploadResponse.status}): ${errorBody}`);
       throw new Error(`Fallo al subir archivo a S3: ${uploadResponse.status} - ${errorBody}`);
     }
-    console.log('Archivo subido a S3 exitosamente:', presignedUrl.split('?')[0]); // Log sin query params
+    console.log('Archivo subido a S3 exitosamente:', presignedUrl.split('?')[0]); 
     return uploadResponse;
   } catch (error) {
     console.error('Excepción durante la subida a S3:', error);
-    throw error; // Re-throw para que sea capturado por el llamador
+    throw error; 
   }
 }
 

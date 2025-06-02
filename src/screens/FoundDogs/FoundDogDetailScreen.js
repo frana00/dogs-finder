@@ -68,6 +68,17 @@ const FoundDogDetailScreen = ({ navigation }) => {
     setError(null);
     try {
       const fullAlert = await getAlert(dogData.id);
+      console.log('🔍 FULL ALERT DATA STRUCTURE:', JSON.stringify(fullAlert, null, 2));
+      
+      if (fullAlert.photoUrls && Array.isArray(fullAlert.photoUrls) && fullAlert.photoUrls.length > 0) {
+        console.log('🔍 PHOTO DATA STRUCTURE ANALYSIS:');
+        console.log('Number of photos:', fullAlert.photoUrls.length);
+        fullAlert.photoUrls.forEach((photo, index) => {
+          console.log(`Photo ${index + 1}:`, JSON.stringify(photo, null, 2));
+          console.log(`Photo ${index + 1} keys:`, Object.keys(photo));
+        });
+      }
+      
       setDogData({ ...fullAlert, fullDataLoaded: true });
     } catch (err) {
       console.error('Error loading full alert data:', err);

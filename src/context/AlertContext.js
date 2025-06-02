@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
-import apiService from '../services/apiService';
+import { getApiServiceInstance } from '../services/apiService';
+const apiService = getApiServiceInstance();
 
 export const AlertContext = createContext();
 

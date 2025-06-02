@@ -120,7 +120,7 @@ const LostDogDetailScreen = ({ navigation }) => {
 
   const handleEditAlert = (alertToEdit) => {
     // Navigate to the CreateAlertScreen with edit mode, passing the alert data
-    navigation.navigate('CreateAlertScreen', { existingAlert: alertToEdit }); 
+    navigation.navigate('MainTabs', { screen: 'Perdidos', params: { screen: 'CreateAlert', params: { existingAlert: alertToEdit } } }); 
     console.log('Editar alerta:', alertToEdit.id);
   };
 

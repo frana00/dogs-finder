@@ -35,7 +35,7 @@ const CreateAlertScreen = ({ navigation, route }) => {
     const [postalCode, setPostalCode] = useState(existingAlert?.postalCode || '');
     const [countryCode, setCountryCode] = useState(existingAlert?.countryCode || '');
     const [gettingLocation, setGettingLocation] = useState(false);
-    const [photos, setPhotos] = useState(existingAlert?.photoFilenames?.map(filename => ({ uri: filename, filename })) || []); 
+    const [photos, setPhotos] = useState(existingAlert?.photoUrls?.map(p => ({ uri: p.presignedUrl, s3ObjectKey: p.s3ObjectKey, id: p.s3ObjectKey, type: 'existing' })) || []); 
     const [isLoading, setIsLoading] = useState(false);
     const [title, setTitle] = useState(existingAlert?.title || '');
     const [sex, setSex] = useState(existingAlert?.sex || 'UNKNOWN');
@@ -198,9 +198,11 @@ const CreateAlertScreen = ({ navigation, route }) => {
     if (!result.canceled && result.assets && result.assets.length > 0) {
       const asset = result.assets[0];
       const uri = asset.uri;
-      const filename = asset.fileName || `photo_${Date.now()}.${uri.split('.').pop()}`;
+      const filename = asset.fileName || `photo_${Date.now()}.${asset.uri.split('.').pop()}`;
+      const mimeType = asset.mimeType || asset.type; // Get MIME type
+      const photoId = `new_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`; // Generate unique ID
       
-      setPhotos([...currentPhotos, { uri, filename }].slice(0, 5));
+      setPhotos([...currentPhotos, { id: photoId, uri, filename, mimeType, type: 'new' }].slice(0, 5));
     }
   };
 
@@ -352,9 +354,9 @@ const CreateAlertScreen = ({ navigation, route }) => {
           <Text style={styles.uploadButtonText}>Agregar foto</Text>
         </TouchableOpacity>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginVertical: 12 }}>
-          {(Array.isArray(photos) ? photos : []).map((uri, idx) => (
-            <View key={uri || idx} style={{ marginRight: 8, marginBottom: 8 }}>
-              <Image source={{ uri }} style={{ width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#ccc' }} />
+          {(Array.isArray(photos) ? photos : []).map((photo, idx) => (
+            <View key={photo.id || photo.uri || idx} style={{ marginRight: 8, marginBottom: 8 }}>
+              <Image source={{ uri: photo.uri }} style={{ width: 80, height: 80, borderRadius: 10, borderWidth: 1, borderColor: '#ccc' }} />
               <TouchableOpacity
                 onPress={() => removePhoto(idx)}
                 style={{

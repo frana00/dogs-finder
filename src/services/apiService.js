@@ -4,9 +4,38 @@ import { Buffer } from 'buffer'; // Added for Base64 encoding
 import { BASIC_AUTH_USERNAME, BASIC_AUTH_PASSWORD } from '@env'; // Added for Basic Auth credentials
 
 class ApiService {
+  // Variable para almacenar el token actual
+  _authToken = null;
+
+  // Método para establecer el token de autenticación
+  setAuthHeader(token) {
+    console.log('[ApiService] setAuthHeader called with token:', token ? 'Token exists' : 'No token');
+    if (token) {
+      this._authToken = token; // Guardar en memoria para uso inmediato
+      AsyncStorage.setItem('userToken', token); // Persistir para futuras sesiones
+      console.log('[ApiService] Token stored in memory and AsyncStorage');
+    }
+  }
+
+  // Método para limpiar el token de autenticación
+  clearAuthHeader() {
+    console.log('[ApiService] clearAuthHeader called');
+    this._authToken = null; // Limpiar de memoria
+    AsyncStorage.removeItem('userToken'); // Limpiar de almacenamiento
+    console.log('[ApiService] Token removed from memory and AsyncStorage');
+  }
+
   // Método para obtener headers con token de autenticación
   async getAuthHeaders() {
-    const token = await AsyncStorage.getItem('userToken');
+    // Usar el token en memoria si existe, si no, intentar recuperarlo de AsyncStorage
+    let token = this._authToken;
+    if (!token) {
+      token = await AsyncStorage.getItem('userToken');
+      if (token) {
+        this._authToken = token; // Guardar en memoria para futuras llamadas
+      }
+    }
+    
     return {
       ...API_CONFIG.DEFAULT_HEADERS,
       ...(token && { Authorization: `Bearer ${token}` }),
@@ -18,26 +47,19 @@ class ApiService {
     const url = await buildUrl(endpoint);
     let combinedHeaders = await this.getAuthHeaders(); // Este ya tiene Content-Type, Accept y Bearer (si existe)
 
-    // Añadir Basic Auth si las credenciales están disponibles y no hay un token Bearer
-    // O si el endpoint es el de login, donde Basic Auth podría ser requerido en lugar de Bearer
-    // Esta lógica puede necesitar ajuste fino según cómo el backend priorice los esquemas de Auth
-    if (BASIC_AUTH_USERNAME && BASIC_AUTH_PASSWORD) {
+    // Añadir Basic Auth SOLO si no hay un token Bearer Y las credenciales están disponibles
+    // Esto asegura que el token Bearer tenga prioridad cuando existe
+    if (!combinedHeaders.Authorization && BASIC_AUTH_USERNAME && BASIC_AUTH_PASSWORD) {
+      console.log('[ApiService] No Bearer token found, using Basic Auth for:', endpoint);
       const basicAuthCredentials = `${BASIC_AUTH_USERNAME}:${BASIC_AUTH_PASSWORD}`;
       const base64Credentials = Buffer.from(basicAuthCredentials).toString('base64');
       
-      // TEMPORARY DEBUGGING: Always add Basic Auth if no Bearer, OR if endpoint is LOGIN, PROFILE or ALERTS
-      if (!combinedHeaders.Authorization || 
-          endpoint === API_CONFIG.ENDPOINTS.LOGIN || 
-          endpoint === API_CONFIG.ENDPOINTS.PROFILE ||
-          endpoint.startsWith(API_CONFIG.ENDPOINTS.ALERTS)) { 
-           combinedHeaders = {
-            ...combinedHeaders,
-            'Authorization': `Basic ${base64Credentials}`,
-            // Consider if backend needs Content-Type even for GET with Basic Auth, though usually not.
-            // 'Content-Type': 'application/json', // Might be needed by some backends even for GET
-            // 'Accept': 'application/json',
-          };
-      }
+      combinedHeaders = {
+        ...combinedHeaders,
+        'Authorization': `Basic ${base64Credentials}`,
+      };
+    } else if (combinedHeaders.Authorization) {
+      console.log('[ApiService] Using Bearer token for:', endpoint);
     }
 
     const config = {
@@ -450,6 +472,8 @@ class ApiService {
 }
 
 // Crear una instancia única del servicio
-const apiService = new ApiService();
+const instance = new ApiService();
 
-export default apiService;
+export function getApiServiceInstance() {
+  return instance;
+}

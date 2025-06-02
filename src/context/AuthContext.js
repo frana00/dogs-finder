@@ -1,25 +1,35 @@
 import React, { createContext, useState, useCallback } from 'react';
 import { Alert, Platform } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import apiService from '../services/apiService';
+import { getApiServiceInstance } from '../services/apiService';
+const apiService = getApiServiceInstance();
 
 export const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(false);
   const [token, setToken] = useState(null);
+  const [loading, setLoading] = useState(true); // Para la carga inicial de la app y procesos de auth
+  const [profileOpLoading, setProfileOpLoading] = useState(false); // Para operaciones de carga/actualización de perfil
 
   // Verificar si hay un token guardado al iniciar la app
   const checkAuth = useCallback(async () => {
+    console.log('[AuthContext] checkAuth: STARTING');
     try {
+      console.log('[AuthContext] checkAuth: TRY block entered.');
+      console.log('[AuthContext] checkAuth: Attempting to get userToken from AsyncStorage...');
       const storedToken = await AsyncStorage.getItem('userToken');
+      console.log('[AuthContext] checkAuth: userToken from AsyncStorage -', storedToken ? 'Exists' : 'null');
+      console.log('[AuthContext] checkAuth: Attempting to get userData from AsyncStorage...');
       const storedUser = await AsyncStorage.getItem('userData');
+      console.log('[AuthContext] checkAuth: userData from AsyncStorage -', storedUser ? 'Exists' : 'null');
       
       if (storedToken && storedUser) {
+        apiService.setAuthHeader(storedToken);
+        setUser(JSON.parse(storedUser));
         setToken(storedToken);
-        const parsedUser = JSON.parse(storedUser);
+        console.log('[AuthContext] checkAuth: Session restored. User and Token SET.');
         setIsAuthenticated(true);
         
         // Obtener perfil completo
@@ -27,23 +37,29 @@ export const AuthProvider = ({ children }) => {
           console.log('🔄 AuthContext: Calling getProfile() in checkAuth...');
           const profile = await apiService.getProfile();
           console.log('✅ AuthContext: Profile data from getProfile() in checkAuth:', profile);
-          const fullUser = { ...parsedUser, ...profile }; // Combinar datos básicos con perfil completo
+          const fullUser = { ...JSON.parse(storedUser), ...profile }; // Combinar datos básicos con perfil completo
           setUser(fullUser);
           await AsyncStorage.setItem('userData', JSON.stringify(fullUser));
         } catch (profileError) {
           console.error('❌ AuthContext: Error fetching profile in checkAuth:', profileError);
-          setUser(parsedUser); // Usar datos básicos si el perfil falla
+          setUser(JSON.parse(storedUser)); // Usar datos básicos si el perfil falla
         }
       } else {
+        console.log('[AuthContext] checkAuth: No active session found in AsyncStorage.');
         setIsAuthenticated(false);
         setUser(null);
       }
     } catch (error) {
-      console.error('Error al verificar autenticación:', error);
+      console.error('💥 [AuthContext] checkAuth: ERROR in TRY block -', error);
+    } finally {
+      console.log('[AuthContext] checkAuth: FINALLY block reached.');
+      setLoading(false);
+      console.log('[AuthContext] checkAuth: setLoading(false) CALLED.');
     }
   }, []);
 
-  const login = async (email, password) => {
+  const login = useCallback(async (email, password) => {
+    console.log(`[AuthContext] login: Attempting login for ${email}`);
     setLoading(true);
     try {
       if (!email || !password) {
@@ -54,17 +70,20 @@ export const AuthProvider = ({ children }) => {
       
       if (response && response.token && response.user) {
         await AsyncStorage.setItem('userToken', response.token);
-        
         setToken(response.token);
         setIsAuthenticated(true);
+        console.log('[AuthContext] login: Login successful. Token received:', response.token);
+        apiService.setAuthHeader(response.token); // Crucial: Set auth header for subsequent calls
+        console.log('[AuthContext] login: Auth header set in apiService with new token.');
         
         // Obtener perfil completo después del login
         try {
           console.log('🔄 AuthContext: Calling getProfile() after login...');
           const profile = await apiService.getProfile();
-          console.log('✅ AuthContext: Profile data from getProfile() after login:', profile);
+          console.log('✅ AuthContext: Profile data from getProfile() after login:', JSON.stringify(profile, null, 2));
           setUser(profile); 
           await AsyncStorage.setItem('userData', JSON.stringify(profile));
+          console.log('[AuthContext] login: User state and AsyncStorage updated with profile:', JSON.stringify(profile, null, 2));
         } catch (profileError) {
           console.error('❌ AuthContext: Error fetching profile after login:', profileError);
           setUser(response.user); // Usar datos básicos del login si el perfil falla
@@ -99,7 +118,7 @@ export const AuthProvider = ({ children }) => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const register = async (userData) => {
     setLoading(true);
@@ -158,22 +177,57 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = async () => {
+  const logout = useCallback(async () => {
+    console.log('[AuthContext] logout: Starting logout process.');
+    setLoading(true);
     try {
       await AsyncStorage.removeItem('userToken');
+      console.log('[AuthContext] logout: userToken removed from AsyncStorage.');
       await AsyncStorage.removeItem('userData');
+      console.log('[AuthContext] logout: userData removed from AsyncStorage.');
       
+      apiService.clearAuthHeader(); // Crucial: Clear auth header
+      console.log('[AuthContext] logout: Auth header cleared in apiService.');
       setToken(null);
       setUser(null);
       setIsAuthenticated(false);
+      console.log('[AuthContext] logout: User state reset. Logout complete.');
     } catch (error) {
-      console.error('Error al cerrar sesión:', error);
+      console.error('💥 [AuthContext] logout: ERROR -', error);
+    } finally {
+      setLoading(false);
     }
-  };
+  }, []);
 
   // Método para actualizar el perfil del usuario
-  const updateProfile = async (userData) => {
-    setLoading(true);
+  const fetchUserProfile = useCallback(async () => {
+    setProfileOpLoading(true); // Indicar que la operación de carga está en curso
+    try {
+      console.log('🔄 AuthContext: Calling getProfile() in fetchUserProfile...');
+      const profileData = await apiService.getProfile();
+      console.log('✅ AuthContext: Profile data from getProfile() in fetchUserProfile:', profileData);
+      setUser(profileData);
+      await AsyncStorage.setItem('userData', JSON.stringify(profileData));
+      return { success: true, user: profileData };
+    } catch (error) {
+      // Este console.error pertenece a fetchUserProfile, el de checkAuth ya está arriba.
+      console.error('❌ AuthContext: Error fetching profile in fetchUserProfile:', error);
+      let errorMessage = 'No se pudo cargar tu perfil.';
+      if (error.message === 'TOKEN_EXPIRED') {
+        await logout(); // logout() ya maneja la limpieza y el estado de autenticación
+        errorMessage = 'Tu sesión ha expirado. Por favor, inicia sesión nuevamente.';
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+      Alert.alert('Error', errorMessage);
+      return { success: false, error: errorMessage };
+    } finally {
+      setProfileOpLoading(false); // Finalizar el estado de carga de la actualización
+    }
+  }, [logout]); // Agregado logout a las dependencias de useCallback
+
+  const updateProfile = useCallback(async (userData) => {
+    setProfileOpLoading(true); // Indicar que la operación de actualización está en curso
     try {
       const updatedUser = await apiService.updateProfile(userData);
       
@@ -196,24 +250,24 @@ export const AuthProvider = ({ children }) => {
       Alert.alert('Error', errorMessage);
       return { success: false, error: errorMessage };
     } finally {
-      setLoading(false);
+      setProfileOpLoading(false); // Finalizar el estado de carga de la actualización
     }
-  };
+  }, [logout]); // Agregado logout a las dependencias de useCallback
 
   return (
-    <AuthContext.Provider
-      value={{
-        isAuthenticated,
-        user,
-        token,
-        loading,
-        login,
-        register,
-        logout,
-        checkAuth,
-        updateProfile,
-      }}
-    >
+    <AuthContext.Provider value={{ 
+      user, 
+      token, 
+      isAuthenticated: !!token, 
+      loading, 
+      profileOpLoading, // Exponer el nuevo estado de carga
+      login, 
+      logout, 
+      register, 
+      checkAuth,
+      updateProfile,
+      fetchUserProfile
+    }}>
       {children}
     </AuthContext.Provider>
   );

@@ -5,9 +5,9 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '../context/AuthContext';
 
 const ProfileScreen = () => {
+  const { user, logout, updateProfile, fetchUserProfile, profileOpLoading } = useContext(AuthContext);
   const [isEditing, setIsEditing] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const { user, logout, updateProfile } = useContext(AuthContext);
+
   
   // Datos del usuario desde el contexto
   const [userData, setUserData] = useState({
@@ -35,6 +35,33 @@ const ProfileScreen = () => {
     }
   }, [user]);
 
+  // Cargar datos del perfil al montar la pantalla
+  useEffect(() => {
+    fetchUserProfile();
+  }, [fetchUserProfile]);
+
+  // Usar profileOpLoading para el indicador de carga del perfil
+  if (profileOpLoading && !user) { // Muestra carga si se está cargando el perfil y aún no hay datos de usuario
+    return (
+      <View style={styles.loadingContainer}>
+        <ActivityIndicator size="large" color="#FF9800" />
+        <Text>Cargando perfil...</Text>
+      </View>
+    );
+  }
+
+  if (!user && !profileOpLoading) { // Si no hay usuario y no se está cargando el perfil, podría ser un error o deslogueado
+    return (
+      <View style={styles.loadingContainer}>
+        <Text>No se pudieron cargar los datos del perfil.</Text>
+        <Text>Por favor, intenta iniciar sesión nuevamente.</Text>
+        {/* Aquí podrías ofrecer un botón para reintentar o ir a Login */}
+      </View>
+    );
+  }
+  
+  // Si user es null después de intentar cargar, pero authLoading es false, es un caso especial.
+  // El siguiente if (!user) es para el caso en que user es null pero no necesariamente por error de carga inicial.
   if (!user) {
     return (
       <View style={styles.loadingContainer}>
@@ -57,8 +84,9 @@ const ProfileScreen = () => {
       return;
     }
     
+    // El estado de carga ahora es manejado por profileOpLoading dentro de updateProfile
     try {
-      const result = await updateProfile(editableData);
+      const result = await updateProfile(editableData); // updateProfile ya maneja su propio loading y setUser
       
       if (result.success) {
         setUserData({...editableData});

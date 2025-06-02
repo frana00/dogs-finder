@@ -7,7 +7,7 @@ import * as ImagePicker from 'expo-image-picker';
 import apiService from '../../services/apiService';
 import { AuthContext } from '../../context/AuthContext';
 
-const CreateAlertScreen = ({ navigation }) => {
+const CreateAlertScreen = ({ navigation, route }) => {
   try {
     const authContext = useContext(AuthContext);
     
@@ -22,18 +22,23 @@ const CreateAlertScreen = ({ navigation }) => {
     
     const { user } = authContext;
     
-    const [dogName, setDogName] = useState('');
-    const [breed, setBreed] = useState('');
-    const [description, setDescription] = useState('');
-    const [chip, setChip] = useState('');
-    const [locationAddress, setLocationAddress] = useState('');
-    const [postalCode, setPostalCode] = useState('');
-    const [countryCode, setCountryCode] = useState('');
+    // Determine if we're in edit mode and get existing data
+    const existingAlert = route.params?.existingAlert;
+    const isEditMode = !!existingAlert;
+    const alertId = existingAlert?.id;
+    
+    const [dogName, setDogName] = useState(existingAlert?.title?.replace('Perro perdido: ', '') || '');
+    const [breed, setBreed] = useState(existingAlert?.breed || '');
+    const [description, setDescription] = useState(existingAlert?.description || '');
+    const [chip, setChip] = useState(existingAlert?.chipNumber || '');
+    const [locationAddress, setLocationAddress] = useState(existingAlert?.locationAddress || '');
+    const [postalCode, setPostalCode] = useState(existingAlert?.postalCode || '');
+    const [countryCode, setCountryCode] = useState(existingAlert?.countryCode || '');
     const [gettingLocation, setGettingLocation] = useState(false);
-    const [photos, setPhotos] = useState([]); 
+    const [photos, setPhotos] = useState(existingAlert?.photoFilenames?.map(filename => ({ uri: filename, filename })) || []); 
     const [isLoading, setIsLoading] = useState(false);
-    const [title, setTitle] = useState('');
-    const [sex, setSex] = useState('UNKNOWN');
+    const [title, setTitle] = useState(existingAlert?.title || '');
+    const [sex, setSex] = useState(existingAlert?.sex || 'UNKNOWN');
 
     console.log('🔍 CreateAlertScreen: Component rendered, photos:', photos);
     console.log('🔍 CreateAlertScreen: user:', user);
@@ -81,6 +86,7 @@ const CreateAlertScreen = ({ navigation }) => {
     console.log('🚀 handleSubmit: Starting...');
     console.log('🔍 handleSubmit: photos:', photos);
     console.log('🔍 handleSubmit: user:', user);
+    console.log('🔍 handleSubmit: isEditMode:', isEditMode);
     
     if (!dogName || !description || !locationAddress || !title) {
       Alert.alert('Campos incompletos', 'Por favor, completa todos los campos obligatorios: Nombre, Título, Descripción y Ubicación.');
@@ -103,48 +109,59 @@ const CreateAlertScreen = ({ navigation }) => {
         chipNumber: chip || "",
         status: 'ACTIVE',
         sex: sex,
-        date: new Date().toISOString(),
+        date: isEditMode ? existingAlert.date : new Date().toISOString(),
         title: title.trim(),
         description: description.trim(),
         breed: breed.trim() || 'Mestizo',
         postalCode: postalCode,
         countryCode: countryCode.toUpperCase(),
-        photoFilenames: photoFilenames, // El backend procesará esto y subirá las fotos
+        photoFilenames: photoFilenames,
       };
 
-      // El backend crea la alerta y maneja la subida de las fotos internamente.
-      // La respuesta debería incluir el ID de la alerta y las URLs finales de las fotos si se subieron.
-      const response = await apiService.createAlert(alertData);
+      let response;
+      if (isEditMode && alertId) {
+        // Update existing alert
+        console.log('Updating alert with ID:', alertId);
+        response = await apiService.updateAlert(alertId, alertData);
+      } else {
+        // Create new alert
+        response = await apiService.createAlert(alertData);
+      }
       
       console.log('Respuesta completa del backend en handleSubmit (LostDog):', JSON.stringify(response));
 
       setIsLoading(false);
       if (response && response.id) { 
-        let feedbackMessage = `Tu alerta (ID: ${response.id}) ha sido registrada.`;
+        let feedbackMessage = isEditMode 
+          ? `Tu alerta (ID: ${response.id}) ha sido actualizada.`
+          : `Tu alerta (ID: ${response.id}) ha sido registrada.`;
+        
         if (photoFilenames.length > 0) {
           if (response.photoUrls && response.photoUrls.length > 0) {
             feedbackMessage += `\n${response.photoUrls.length} foto(s) procesada(s).`;
           } else {
             feedbackMessage += `\nLas fotos no pudieron ser procesadas por el servidor.`;
-            // Opcional: Podrías querer un manejo de error más específico aquí si las fotos eran esperadas.
           }
         }
 
-        Alert.alert('Alerta Registrada', feedbackMessage, [
+        const alertTitle = isEditMode ? 'Alerta Actualizada' : 'Alerta Registrada';
+        Alert.alert(alertTitle, feedbackMessage, [
           { text: 'OK', onPress: () => navigation.goBack() }
         ]);
 
-        // Limpiar formulario
-        setDogName('');
-        setBreed('');
-        setDescription('');
-        setLocationAddress('');
-        setPostalCode('');
-        setCountryCode('');
-        setChip('');
-        setPhotos([]);
-        setTitle('');
-        setSex('UNKNOWN');
+        if (!isEditMode) {
+          // Clear form only for new alerts
+          setDogName('');
+          setBreed('');
+          setDescription('');
+          setLocationAddress('');
+          setPostalCode('');
+          setCountryCode('');
+          setChip('');
+          setPhotos([]);
+          setTitle('');
+          setSex('UNKNOWN');
+        }
 
       } else {
         const errorMessage = response && response.message ? response.message : 'No se pudo obtener el ID de la alerta o hubo un error desconocido.'; 
@@ -204,8 +221,8 @@ const CreateAlertScreen = ({ navigation }) => {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Perro Perdido</Text>
-        <Text style={styles.subtitle}>Completa este formulario para avisar a la comunidad que se perdió este perro.</Text>
+        <Text style={styles.title}>{isEditMode ? 'Editar Perro Perdido' : 'Perro Perdido'}</Text>
+        <Text style={styles.subtitle}>{isEditMode ? 'Actualiza los datos de esta alerta.' : 'Completa este formulario para avisar a la comunidad que se perdió este perro.'}</Text>
 
         <Text style={styles.label}>Nombre del Perro</Text>
         <TextInput style={styles.input} placeholder="Ej: Bobby, Luna" value={dogName} onChangeText={setDogName} />
@@ -368,7 +385,7 @@ const CreateAlertScreen = ({ navigation }) => {
           {isLoading ? (
             <ActivityIndicator size="small" color="#fff" />
           ) : (
-            <Text style={styles.buttonText}>Crear Alerta</Text>
+            <Text style={styles.buttonText}>{isEditMode ? 'Guardar Cambios' : 'Crear Alerta'}</Text>
           )}
         </TouchableOpacity>
         <View style={{ height: 80 }} />

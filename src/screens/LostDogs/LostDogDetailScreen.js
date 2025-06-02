@@ -12,7 +12,8 @@ import {
   Platform,
   ActivityIndicator,
   Alert,
-  Modal
+  Modal,
+  FlatList
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { useRoute } from '@react-navigation/native';
@@ -29,7 +30,7 @@ const LOST_DOG_COLOR_BORDER = '#FFE0B2';
 const LostDogDetailScreen = ({ navigation }) => {
   const route = useRoute();
   const { dog } = route.params; // Obtener el objeto dog completo
-  const { getAlert } = useAlerts();
+  const { getAlert, deleteAlert } = useAlerts();
   
   // Estados para los datos de la alerta
   const [dogData, setDogData] = useState(dog);
@@ -115,6 +116,54 @@ const LostDogDetailScreen = ({ navigation }) => {
     setPosts([...posts, newPostEntry]);
     setNewPost(''); setNewPostImage(null); Keyboard.dismiss();
     setTimeout(() => { scrollRef.current?.scrollToEnd({ animated: true }); }, 150);
+  };
+
+  const handleEditAlert = (alertToEdit) => {
+    // Navigate to the CreateAlertScreen with edit mode, passing the alert data
+    navigation.navigate('CreateAlertScreen', { existingAlert: alertToEdit }); 
+    console.log('Editar alerta:', alertToEdit.id);
+  };
+
+  const handleDeleteAlert = async (alertId) => {
+    Alert.alert(
+      'Confirmar Eliminación',
+      '¿Estás seguro de que quieres eliminar esta alerta? Esta acción no se puede deshacer.',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log(`🗑️ Eliminando alerta ${alertId}`);
+              setLoading(true);
+              
+              // Usar el método deleteAlert del contexto
+              await deleteAlert(alertId);
+              
+              console.log(`✅ Alerta ${alertId} eliminada exitosamente`);
+              setLoading(false);
+              
+              Alert.alert(
+                'Alerta Eliminada', 
+                'La alerta ha sido eliminada exitosamente.',
+                [{ text: 'OK', onPress: () => navigation.goBack() }]
+              );
+            } catch (error) {
+              console.error('❌ Error al eliminar la alerta:', error);
+              setLoading(false);
+              Alert.alert(
+                'Error', 
+                `No se pudo eliminar la alerta: ${error.message}`
+              );
+            }
+          },
+        },
+      ]
+    );
   };
 
   return (
@@ -266,6 +315,26 @@ const LostDogDetailScreen = ({ navigation }) => {
       <TouchableOpacity style={styles.contactButton} onPress={() => navigation.navigate('Chat', { alertId: dogData.id, alertTitle: dogData.title })}>
         <Text style={styles.contactButtonText}>Contactar al Dueño</Text>
       </TouchableOpacity>
+
+      {/* --- Botones de Edición y Eliminación --- */}
+      {/* --- Botones de Edición y Eliminación --- */}
+      <View style={styles.actionButtonsContainer}>
+        <TouchableOpacity 
+          style={styles.editButton} 
+          onPress={() => handleEditAlert(dogData)}
+        >
+          <Ionicons name="create-outline" size={22} color="#fff" style={styles.buttonIcon} />
+          <Text style={styles.editButtonText}>Editar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity 
+          style={styles.deleteButton} 
+          onPress={() => handleDeleteAlert(dogData.id)}
+        >
+          <Ionicons name="trash-outline" size={22} color="#fff" style={styles.buttonIcon} />
+          <Text style={styles.deleteButtonText}>Eliminar</Text>
+        </TouchableOpacity>
+      </View>
 
       {/* --- Sección de Comentarios --- */}
       <View style={styles.postsSection}>
@@ -426,6 +495,60 @@ const styles = StyleSheet.create({
     },
     nextButton: {
       right: 20,
+    },
+    editButton: {
+      flex: 1,
+      backgroundColor: LOST_DOG_COLOR, // Usar el color naranja temático
+      paddingVertical: 14,
+      paddingHorizontal: 15,
+      borderRadius: 8,
+      marginRight: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    deleteButton: {
+      flex: 1,
+      backgroundColor: '#E74C3C', // Mantener rojo para eliminar
+      paddingVertical: 14,
+      paddingHorizontal: 15,
+      borderRadius: 8,
+      marginLeft: 8,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      elevation: 3,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 2 },
+      shadowOpacity: 0.2,
+      shadowRadius: 4,
+    },
+    editButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginLeft: 6,
+    },
+    deleteButtonText: {
+      color: '#fff',
+      fontSize: 16,
+      fontWeight: 'bold',
+      marginLeft: 6,
+    },
+    actionButtonsContainer: {
+      flexDirection: 'row',
+      justifyContent: 'space-between',
+      marginTop: 0,
+      marginBottom: 25,
+      paddingHorizontal: 20,
+    },
+    buttonIcon: {
+      marginRight: 4,
     },
 });
 

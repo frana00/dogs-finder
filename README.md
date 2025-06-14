@@ -6,8 +6,8 @@ Aplicación móvil para gestionar alertas de mascotas perdidas y encontradas.
 
 ```bash
 # Clonar repositorio
-git clone <repository-url>
-cd petsignal-clean
+git clone <https://github.com/frana00/dogs-finder.git>
+cd dogs-finder
 
 # Instalar dependencias
 npm install

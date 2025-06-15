@@ -19,8 +19,9 @@ import Loading from '../../components/common/Loading';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import EmptyState from '../../components/common/EmptyState';
 import AlertCard from '../../components/alerts/AlertCard';
-import ProximityFilter from '../../components/filters/ProximityFilter';
+import { EmbeddedProximityFilter } from '../../components/filters';
 import { getCurrentLocation } from '../../utils/location';
+import { getAlertsNearby } from '../../services/proximity';
 
 // Conditional import for FlatGrid to avoid NativeEventEmitter errors on web
 let FlatGrid = null;
@@ -59,7 +60,8 @@ const HomeScreen = ({ navigation }) => {
     radius: 5, // km
     location: null
   });
-  const [showProximityFilter, setShowProximityFilter] = useState(false);
+  const [filteredAlerts, setFilteredAlerts] = useState([]);
+  const [proximityLoading, setProximityLoading] = useState(false);
   useEffect(() => {
     console.log('🏠 HomeScreen: Refreshing alerts on mount');
     refreshAlerts();
@@ -114,37 +116,40 @@ const HomeScreen = ({ navigation }) => {
 
   const handleMapPress = () => {
     navigation.navigate('Map', { 
-      initialAlerts: alerts || [],
-      userLocation: proximityFilter.location
+      initialAlerts: getDisplayAlerts(),
+      userLocation: proximityFilter.location,
+      proximityFilter: proximityFilter.enabled ? proximityFilter : null
     });
   };
 
-  const handleProximityFilterToggle = () => {
-    if (proximityFilter.enabled) {
-      // Si está activo, desactivar el filtro
-      handleProximityFilterClear();
-    } else {
-      // Si no está activo, mostrar el modal
-      setShowProximityFilter(true);
-    }
+  // Función para obtener las alertas a mostrar (filtradas por proximidad o todas)
+  const getDisplayAlerts = () => {
+    return proximityFilter.enabled ? filteredAlerts : (alerts || []);
   };
 
   const handleProximityFilterApply = async (radius) => {
     try {
+      setProximityLoading(true);
       const location = await getCurrentLocation();
       if (location) {
+        // Filtrar alertas por proximidad usando el servicio
+        const nearbyAlerts = await getAlertsNearby({
+          lat: location.latitude,
+          lng: location.longitude,
+          radius: radius,
+          alerts: alerts || []
+        });
+
         setProximityFilter({
           enabled: true,
           radius: radius,
           location: location
         });
-        setShowProximityFilter(false);
+        setFilteredAlerts(nearbyAlerts);
         
-        // Aquí podrías filtrar las alertas por proximidad
-        // Por ahora solo actualizamos el estado visual
         Alert.alert(
           'Filtro aplicado',
-          `Mostrando alertas dentro de ${radius}km de tu ubicación`
+          `Se encontraron ${nearbyAlerts.length} alertas dentro de ${radius}km de tu ubicación`
         );
       } else {
         Alert.alert(
@@ -155,6 +160,8 @@ const HomeScreen = ({ navigation }) => {
     } catch (error) {
       console.error('Error applying proximity filter:', error);
       Alert.alert('Error', 'No se pudo aplicar el filtro de proximidad');
+    } finally {
+      setProximityLoading(false);
     }
   };
 
@@ -164,7 +171,7 @@ const HomeScreen = ({ navigation }) => {
       radius: 5,
       location: null
     });
-    setShowProximityFilter(false);
+    setFilteredAlerts([]);
   };
 
   const renderFilterButton = (type, label, icon) => {
@@ -283,7 +290,7 @@ const HomeScreen = ({ navigation }) => {
         )}
       </View>
 
-      {/* Map and Proximity Actions */}
+      {/* Map Actions */}
       <View style={styles.actionsSection}>
         <TouchableOpacity
           style={styles.mapButton}
@@ -292,23 +299,18 @@ const HomeScreen = ({ navigation }) => {
           <Text style={styles.mapButtonIcon}>🗺️</Text>
           <Text style={styles.mapButtonText}>Ver en Mapa</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity
-          style={[
-            styles.proximityButton,
-            proximityFilter.enabled && styles.proximityButtonActive
-          ]}
-          onPress={handleProximityFilterToggle}
-        >
-          <Text style={styles.proximityButtonIcon}>📍</Text>
-          <Text style={[
-            styles.proximityButtonText,
-            proximityFilter.enabled && styles.proximityButtonTextActive
-          ]}>
-            {proximityFilter.enabled ? `${proximityFilter.radius}km` : 'Cerca de ti'}
-          </Text>
-        </TouchableOpacity>
       </View>
+
+      {/* Embedded Proximity Filter */}
+      <EmbeddedProximityFilter
+        onFilterNearby={handleProximityFilterApply}
+        onShowAll={handleProximityFilterClear}
+        loading={proximityLoading}
+        isNearbyActive={proximityFilter.enabled}
+        nearbyCount={proximityFilter.enabled ? filteredAlerts.length : 0}
+        currentRadius={proximityFilter.radius}
+        onRadiusChange={(radius) => setProximityFilter(prev => ({ ...prev, radius }))}
+      />
     </View>
   );
 
@@ -369,13 +371,18 @@ const HomeScreen = ({ navigation }) => {
       ) : Platform.OS !== 'web' && FlatGrid ? (
         <FlatGrid
           itemDimension={150}
-          data={alerts || []}
+          data={getDisplayAlerts()}
           style={styles.gridList}
           spacing={16}
           renderItem={({ item }) => (
             <AlertCard alert={item} onPress={handleAlertPress} />
           )}
-          onEndReached={() => loadMoreAlerts()}
+          onEndReached={() => {
+            // Solo cargar más si no estamos filtrando por proximidad
+            if (!proximityFilter.enabled) {
+              loadMoreAlerts();
+            }
+          }}
           onEndReachedThreshold={0.3}
           refreshControl={
             <RefreshControl
@@ -390,7 +397,7 @@ const HomeScreen = ({ navigation }) => {
       ) : (
         // Web fallback using FlatList
         <FlatList
-          data={alerts || []}
+          data={getDisplayAlerts()}
           renderItem={({ item }) => (
             <View style={styles.webListItem}>
               <AlertCard alert={item} onPress={handleAlertPress} />
@@ -398,7 +405,12 @@ const HomeScreen = ({ navigation }) => {
           )}
           numColumns={Math.floor(width / 180)}
           key={Math.floor(width / 180)}
-          onEndReached={() => loadMoreAlerts()}
+          onEndReached={() => {
+            // Solo cargar más si no estamos filtrando por proximidad
+            if (!proximityFilter.enabled) {
+              loadMoreAlerts();
+            }
+          }}
           onEndReachedThreshold={0.3}
           refreshControl={
             <RefreshControl
@@ -425,15 +437,6 @@ const HomeScreen = ({ navigation }) => {
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
-
-      {/* Proximity Filter Modal */}
-      <ProximityFilter
-        visible={showProximityFilter}
-        currentRadius={proximityFilter.radius}
-        onClose={() => setShowProximityFilter(false)}
-        onApply={handleProximityFilterApply}
-        onClear={handleProximityFilterClear}
-      />
     </SafeAreaView>
   );
 };
@@ -570,13 +573,10 @@ const styles = StyleSheet.create({
     textDecorationLine: 'underline',
   },
   actionsSection: {
-    flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingBottom: 16,
-    gap: 12,
+    paddingBottom: 8,
   },
   mapButton: {
-    flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -593,31 +593,6 @@ const styles = StyleSheet.create({
     color: COLORS.white,
     fontWeight: '600',
     fontSize: 14,
-  },
-  proximityButton: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: COLORS.lightGray,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 8,
-    gap: 8,
-  },
-  proximityButtonActive: {
-    backgroundColor: COLORS.secondary,
-  },
-  proximityButtonIcon: {
-    fontSize: 16,
-  },
-  proximityButtonText: {
-    color: COLORS.text,
-    fontWeight: '600',
-    fontSize: 14,
-  },
-  proximityButtonTextActive: {
-    color: COLORS.white,
   },
   gridList: {
     flex: 1,

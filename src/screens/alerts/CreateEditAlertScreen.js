@@ -42,8 +42,15 @@ const CreateEditAlertScreen = ({ route, navigation }) => {
 
   const handleFormSubmit = async (data) => {
     try {
+      console.log('🚀 FORM SUBMIT DEBUG - Starting form submission...');
+      console.log('🆔 Alert ID (for editing):', alertId);
+      console.log('📋 Raw form data received:', data);
+      
       // Separate photos from form data
       const { photos, ...alertFormData } = data;
+      
+      console.log('📸 Photos separated:', photos);
+      console.log('📋 Alert form data after photo separation:', alertFormData);
       
       // Validate user authentication before proceeding
       if (!user || !user.username) {
@@ -63,6 +70,13 @@ const CreateEditAlertScreen = ({ route, navigation }) => {
       // Add username to the alert data (required by backend)
       alertFormData.username = user.username;
       
+      console.log('👤 Username added to form data:', alertFormData.username);
+      console.log('📋 Final alert form data to be sent:', alertFormData);
+      console.log('🔍 FIELD ANALYSIS - Final form data:');
+      Object.entries(alertFormData).forEach(([key, value]) => {
+        console.log(`  ${key}: ${value} (${typeof value})`);
+      });
+      
       if (isEditing) {
         // Update existing alert with local loading
         setLocalLoading(true);
@@ -71,7 +85,20 @@ const CreateEditAlertScreen = ({ route, navigation }) => {
         
         // TODO: Handle photo updates for existing alerts
         Alert.alert('Éxito', 'Alerta actualizada correctamente');
-        navigation.goBack();
+        
+        // Special handling for alert 33 - add extra debug info
+        if (alertId === 33 || alertId === '33') {
+          console.log('🔄 ALERT 33 DEBUG - Alert 33 was just updated!');
+          console.log('📋 Updated data:', updatedAlert);
+          console.log('🕐 Timestamp:', new Date().toISOString());
+          
+          // Give a moment for backend to process, then navigate back
+          setTimeout(() => {
+            navigation.goBack();
+          }, 1000);
+        } else {
+          navigation.goBack();
+        }
       } else {
         // Create new alert - use the new flow with photoFilenames
         const newAlert = await createNewAlert(alertFormData);

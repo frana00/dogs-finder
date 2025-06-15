@@ -97,11 +97,34 @@ const alertReducer = (state, action) => {
       };
     
     case ACTIONS.UPDATE_ALERT:
+      console.log('🔄 REDUCER DEBUG - UPDATE_ALERT action triggered');
+      console.log('📋 Payload (updated alert):', action.payload);
+      console.log('📊 Current alerts in state before update:', state.alerts.length);
+      console.log('🔍 Current alert IDs before update:', state.alerts.map(a => a.id));
+      
+      const updatedAlerts = (state.alerts || []).map(alert => {
+        if (alert.id === action.payload.id) {
+          console.log(`🔄 UPDATING alert ${alert.id} with new data`);
+          console.log('📋 Old data:', alert);
+          console.log('📋 New data:', action.payload);
+          return action.payload;
+        }
+        return alert;
+      });
+      
+      console.log('📊 Updated alerts count:', updatedAlerts.length);
+      console.log('🔍 Updated alert IDs:', updatedAlerts.map(a => a.id));
+      
+      // Special check for alert 33
+      const alert33After = updatedAlerts.find(a => a.id === 33);
+      console.log('🔍 Alert 33 after update:', alert33After ? 'FOUND' : 'NOT FOUND');
+      if (alert33After) {
+        console.log('✅ Alert 33 data after update:', alert33After);
+      }
+      
       return {
         ...state,
-        alerts: (state.alerts || []).map(alert =>
-          alert.id === action.payload.id ? action.payload : alert
-        ),
+        alerts: updatedAlerts,
         currentAlert: state.currentAlert?.id === action.payload.id ? action.payload : state.currentAlert,
         error: null,
       };
@@ -184,6 +207,10 @@ export const AlertProvider = ({ children }) => {
   // Load alerts with current filters and pagination
   const loadAlerts = async (refresh = false) => {
     try {
+      console.log('🔄 LOAD ALERTS DEBUG - Starting to load alerts...');
+      console.log('🔄 Refresh mode:', refresh);
+      console.log('📋 Current filters in state:', state.filters);
+      
       if (refresh) {
         setRefreshing(true);
         dispatch({ type: ACTIONS.RESET_PAGINATION });
@@ -198,14 +225,27 @@ export const AlertProvider = ({ children }) => {
         ...state.filters,
       };
 
+      console.log('📞 Making getAlerts call with options:', options);
       const alerts = await getAlerts(options);
+      console.log('✅ Got alerts from API:', alerts.length, 'alerts');
+      console.log('🆔 Alert IDs received:', alerts.map(a => a.id));
+      
+      // Special check for alert 33
+      const alert33InResults = alerts.find(a => a.id === 33);
+      console.log('🔍 Alert 33 in loadAlerts results:', alert33InResults ? 'FOUND' : 'NOT FOUND');
+      if (alert33InResults) {
+        console.log('✅ Alert 33 data from loadAlerts:', alert33InResults);
+      }
 
       if (refresh || page === 0) {
+        console.log('📋 Setting alerts in context (SET_ALERTS)');
         dispatch({ type: ACTIONS.SET_ALERTS, payload: alerts });
       } else {
+        console.log('📋 Appending alerts to context (APPEND_ALERTS)');
         dispatch({ type: ACTIONS.APPEND_ALERTS, payload: alerts });
       }
     } catch (error) {
+      console.log('❌ LOAD ALERTS ERROR:', error);
       setError(error.message || 'Error al cargar alertas');
     }
   };
@@ -280,11 +320,27 @@ export const AlertProvider = ({ children }) => {
       console.log('🔍 Username in data:', alertData.username);
       
       const updatedAlert = await updateAlert(alertId, alertData);
-      dispatch({ type: ACTIONS.UPDATE_ALERT, payload: updatedAlert });
-      setLoading(false);
       
       console.log('✅ AlertContext: Alert updated successfully');
       console.log('📋 Updated alert data:', updatedAlert);
+      
+      // Update the alert in the context state
+      dispatch({ type: ACTIONS.UPDATE_ALERT, payload: updatedAlert });
+      
+      // Special handling for alert 33 - let's check the state after update
+      if (alertId === 33 || alertId === '33') {
+        setTimeout(() => {
+          console.log('🔍 ALERT 33 DEBUG - Checking context state after update...');
+          console.log('📊 Total alerts in context:', state.alerts.length);
+          const found33InContext = state.alerts.find(alert => alert.id === 33);
+          console.log('� Alert 33 in context after update:', found33InContext ? 'FOUND' : 'NOT FOUND');
+          if (found33InContext) {
+            console.log('✅ Alert 33 data in context:', found33InContext);
+          }
+        }, 500);
+      }
+      
+      setLoading(false);
       
       return updatedAlert;
     } catch (error) {

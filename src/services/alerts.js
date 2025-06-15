@@ -25,36 +25,34 @@ export const getAlerts = async (options = {}) => {
     params.status = options.status;
   }
 
-  console.log('🌐 Making API request to /alerts with params:', params);
+  console.log('🌐 ALERT 33 DEBUG - Making API request to /alerts with params:', params);
   const response = await apiClient.get('/alerts', { params });
-  console.log('📡 API response for /alerts:', response.data);
+  console.log('📡 ALERT 33 DEBUG - Full API response:', response.data);
   
   // Handle paginated response - extract content array
   if (response.data && response.data.content && Array.isArray(response.data.content)) {
-    console.log('📋 Extracted alerts from paginated response:', response.data.content.length, 'alerts');
+    console.log('📋 ALERT 33 DEBUG - Extracted alerts from paginated response:', response.data.content.length, 'alerts');
     
-    // DEBUG: Log photo data in API response
-    console.log('🔍 Photo data in API response:');
-    response.data.content.forEach((alert, index) => {
-      console.log(`API Alert ${index + 1} (ID: ${alert.id}):`);
-      console.log(`  - photoUrl:`, alert.photoUrl || 'not present');
-      console.log(`  - photoUrls:`, alert.photoUrls || 'not present');
-      console.log(`  - photoUrls type:`, typeof alert.photoUrls);
-      console.log(`  - photoUrls isArray:`, Array.isArray(alert.photoUrls));
-      if (alert.photoUrls && Array.isArray(alert.photoUrls)) {
-        console.log(`  - photoUrls length:`, alert.photoUrls.length);
-        alert.photoUrls.forEach((photo, photoIndex) => {
-          console.log(`    Photo ${photoIndex + 1}:`, photo);
-        });
-      }
-    });
+    // CHECK FOR ALERT 33 SPECIFICALLY
+    const alertIds = response.data.content.map(alert => alert.id);
+    console.log('🆔 ALERT 33 DEBUG - All alert IDs:', alertIds);
+    console.log('🔍 ALERT 33 DEBUG - Is alert 33 present?', alertIds.includes(33));
+    
+    const alert33 = response.data.content.find(alert => alert.id === 33);
+    if (alert33) {
+      console.log('✅ ALERT 33 DEBUG - Found alert 33:', alert33);
+    } else {
+      console.log('❌ ALERT 33 DEBUG - Alert 33 NOT found in response');
+      console.log('📊 ALERT 33 DEBUG - Total alerts in response:', response.data.totalElements);
+      console.log('📄 ALERT 33 DEBUG - Current page:', response.data.number);
+      console.log('📄 ALERT 33 DEBUG - Total pages:', response.data.totalPages);
+    }
     
     return response.data.content;
   }
   
   // Fallback for non-paginated response
   if (Array.isArray(response.data)) {
-    console.log('📋 Using direct array response:', response.data.length, 'alerts');
     return response.data;
   }
   
@@ -68,8 +66,15 @@ export const getAlerts = async (options = {}) => {
  * @returns {Promise<Object>} - Alert data
  */
 export const getAlertById = async (alertId) => {
-  const response = await apiClient.get(`/alerts/${alertId}`);
-  return response.data;
+  console.log(`🔍 ALERT 33 DEBUG - Requesting alert by ID: ${alertId}`);
+  try {
+    const response = await apiClient.get(`/alerts/${alertId}`);
+    console.log(`✅ ALERT 33 DEBUG - Alert ${alertId} found:`, response.data);
+    return response.data;
+  } catch (error) {
+    console.log(`❌ ALERT 33 DEBUG - Error fetching alert ${alertId}:`, error.response?.status, error.response?.data);
+    throw error;
+  }
 };
 
 /**
@@ -97,20 +102,7 @@ export const createAlert = async (alertData) => {
     throw new Error('Username is required but missing from alert data');
   }
   
-  console.log('🚀 CREATE ALERT DEBUG:', {
-    originalAlertData: alertData,
-    cleanData: cleanData,
-    petNameInOriginal: alertData.petName,
-    petNameInClean: cleanData.petName,
-    hasPetNameInClean: !!cleanData.petName,
-    titleInClean: cleanData.title
-  });
-  
   const response = await apiClient.post('/alerts', cleanData);
-  
-  console.log('📥 CREATE ALERT RESPONSE:', response.data);
-  console.log('📥 Response petName:', response.data.petName);
-  console.log('📥 Response photoUrls:', response.data.photoUrls);
   
   return response.data;
 };
@@ -122,45 +114,72 @@ export const createAlert = async (alertData) => {
  * @returns {Promise<Object>} - Updated alert data
  */
 export const updateAlert = async (alertId, alertData) => {
-  // Clean up undefined values to avoid sending them as null
-  const cleanData = Object.fromEntries(
-    Object.entries(alertData).filter(([_, value]) => value !== undefined && value !== null && value !== '')
-  );
+  console.log('🔄 ALERT 33 DEBUG - updateAlert called with:');
+  console.log('🆔 Alert ID:', alertId);
+  console.log('📋 Original data:', alertData);
   
-  console.log('📤 Updating alert with ID:', alertId);
-  console.log('📤 Original alert data:', alertData);
-  console.log('📤 Clean alert data:', cleanData);
-  console.log('🔍 LocationSource analysis:');
-  console.log('  - locationSource value:', cleanData.locationSource);
-  console.log('  - locationSource type:', typeof cleanData.locationSource);
-  console.log('  - locationSource length:', cleanData.locationSource ? cleanData.locationSource.length : 'N/A');
-  console.log('  - locationSource JSON:', JSON.stringify(cleanData.locationSource));
-  
-  console.log('🔍 UPDATE ALERT DEBUG:', {
-    originalAlertData: alertData,
-    cleanData: cleanData,
-    petNameInOriginal: alertData.petName,
-    petNameInClean: cleanData.petName,
-    hasPetNameInClean: !!cleanData.petName,
-    locationInOriginal: alertData.location,
-    locationInClean: cleanData.location,
-    latitudeInClean: cleanData.latitude,
-    longitudeInClean: cleanData.longitude
+  // Log each field before filtering
+  console.log('🔍 FIELD BY FIELD ANALYSIS:');
+  Object.entries(alertData).forEach(([key, value]) => {
+    const valueType = typeof value;
+    const willBeFiltered = value === undefined || value === null || value === '';
+    console.log(`  ${key}: ${value} (${valueType}) - ${willBeFiltered ? '❌ WILL BE FILTERED OUT' : '✅ WILL BE KEPT'}`);
   });
   
+  // Clean up undefined values to avoid sending them as null
+  const cleanData = Object.fromEntries(
+    Object.entries(alertData).filter(([key, value]) => {
+      const shouldKeep = value !== undefined && value !== null && value !== '';
+      if (!shouldKeep) {
+        console.log(`�️ FILTERING OUT: ${key} = ${value}`);
+      }
+      return shouldKeep;
+    })
+  );
+  
+  console.log('🧹 Cleaned data:', cleanData);
+  console.log('� Original fields count:', Object.keys(alertData).length);
+  console.log('📊 Cleaned fields count:', Object.keys(cleanData).length);
+  
   try {
+    console.log('📞 ALERT 33 DEBUG - Making PUT request to backend...');
     const response = await apiClient.put(`/alerts/${alertId}`, cleanData);
     
-    console.log('📥 UPDATE ALERT RESPONSE SUCCESS:', response.data);
+    console.log('✅ ALERT 33 DEBUG - Backend response received:');
+    console.log('📡 Status:', response.status);
+    console.log('📋 Response data:', response.data);
+    
+    // If this is alert 33, let's verify it immediately
+    if (alertId === 33 || alertId === '33') {
+      console.log('🔍 ALERT 33 DEBUG - This is alert 33! Verifying update...');
+      setTimeout(async () => {
+        try {
+          console.log('🔍 ALERT 33 DEBUG - Fetching alert 33 to verify update...');
+          const verifyResponse = await apiClient.get(`/alerts/${alertId}`);
+          console.log('✅ ALERT 33 DEBUG - Verification successful:', verifyResponse.data);
+          
+          // Also check if it appears in the alerts list
+          console.log('🔍 ALERT 33 DEBUG - Checking if alert 33 appears in alerts list...');
+          const listResponse = await apiClient.get('/alerts', { params: { status: 'ACTIVE' } });
+          const alertsInList = listResponse.data.content || listResponse.data;
+          const found33 = alertsInList.find(alert => alert.id === 33);
+          console.log('📋 ALERT 33 DEBUG - Is alert 33 in list after update?', found33 ? 'YES' : 'NO');
+          if (found33) {
+            console.log('✅ ALERT 33 DEBUG - Found in list:', found33);
+          } else {
+            console.log('❌ ALERT 33 DEBUG - NOT found in list');
+            console.log('📊 ALERT 33 DEBUG - Total alerts in list:', alertsInList.length);
+          }
+        } catch (verifyError) {
+          console.log('❌ ALERT 33 DEBUG - Verification failed:', verifyError);
+        }
+      }, 1000); // Wait 1 second then verify
+    }
     
     return response.data;
   } catch (error) {
-    console.log('❌ UPDATE ALERT ERROR:', error);
-    console.log('❌ Error response data:', error.response?.data);
-    console.log('❌ Error response status:', error.response?.status);
-    console.log('❌ Error response headers:', error.response?.headers);
-    console.log('❌ Error request data sent:', cleanData);
-    
+    console.log('❌ ALERT 33 DEBUG - updateAlert failed:');
+    console.log('❌ Error:', error.response?.status, error.response?.data);
     throw error;
   }
 };

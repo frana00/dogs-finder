@@ -19,9 +19,11 @@ import Loading from '../../components/common/Loading';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import EmptyState from '../../components/common/EmptyState';
 import AlertCard from '../../components/alerts/AlertCard';
-import { EmbeddedProximityFilter } from '../../components/filters';
+
+import EmbeddedProximityFilter from '../../components/filters/EmbeddedProximityFilter';
 import { getCurrentLocation } from '../../utils/location';
 import { getAlertsNearby } from '../../services/proximity';
+import { getAlerts } from '../../services/alerts';
 
 // Conditional import for FlatGrid to avoid NativeEventEmitter errors on web
 let FlatGrid = null;
@@ -76,31 +78,6 @@ const HomeScreen = ({ navigation }) => {
 
     return unsubscribe;
   }, [navigation, refreshAlerts]);
-
-  // Debug logging for alerts data
-  useEffect(() => {
-    console.log('🏠 HomeScreen: Alerts data changed');
-    console.log('📊 Alerts array:', alerts);
-    console.log('📏 Alerts length:', Array.isArray(alerts) ? alerts.length : 'Not an array');
-    
-    // DEBUG: Log photo data for each alert
-    if (Array.isArray(alerts) && alerts.length > 0) {
-      console.log('🔍 Photo data analysis:');
-      alerts.forEach((alert, index) => {
-        console.log(`Alert ${index + 1} (ID: ${alert.id}):`);
-        console.log(`  - Has photoUrl: ${!!alert.photoUrl}`);
-        console.log(`  - Has photoUrls: ${!!alert.photoUrls}`);
-        console.log(`  - PhotoUrls length: ${alert.photoUrls ? alert.photoUrls.length : 0}`);
-        if (alert.photoUrls && alert.photoUrls.length > 0) {
-          console.log(`  - First photo:`, alert.photoUrls[0]);
-        }
-      });
-    }
-    
-    console.log('🔍 Filters:', filters);
-    console.log('⏳ Loading:', loading);
-    console.log('❌ Error:', error);
-  }, [alerts, filters, loading, error]);
 
   const handleAlertPress = (alert) => {
     navigation.navigate('AlertDetail', { alertId: alert.id });

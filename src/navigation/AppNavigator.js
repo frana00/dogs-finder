@@ -22,6 +22,9 @@ import DevScreen from '../screens/dev/DevScreen';
 import AlertDetailScreen from '../screens/alerts/AlertDetailScreen';
 import CreateEditAlertScreen from '../screens/alerts/CreateEditAlertScreen';
 
+// Map Screens
+import MapScreen from '../screens/maps/MapScreen';
+
 const Stack = createStackNavigator();
 
 // Auth Stack - for non-authenticated users
@@ -94,6 +97,14 @@ const MainStack = () => {
       <Stack.Screen 
         name="CreateEditAlert" 
         component={CreateEditAlertScreen}
+        options={{
+          headerShown: false,
+        }}
+      />
+      
+      <Stack.Screen 
+        name="Map" 
+        component={MapScreen}
         options={{
           headerShown: false,
         }}

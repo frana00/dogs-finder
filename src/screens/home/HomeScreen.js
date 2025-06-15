@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Dimensions,
   FlatList,
   Platform,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useAuth } from '../../context/AuthContext';
@@ -18,6 +19,8 @@ import Loading from '../../components/common/Loading';
 import ErrorMessage from '../../components/common/ErrorMessage';
 import EmptyState from '../../components/common/EmptyState';
 import AlertCard from '../../components/alerts/AlertCard';
+import ProximityFilter from '../../components/filters/ProximityFilter';
+import { getCurrentLocation } from '../../utils/location';
 
 // Conditional import for FlatGrid to avoid NativeEventEmitter errors on web
 let FlatGrid = null;
@@ -50,6 +53,13 @@ const HomeScreen = ({ navigation }) => {
     getAlertsByType 
   } = useAlert();
 
+  // State for proximity filter
+  const [proximityFilter, setProximityFilter] = useState({
+    enabled: false,
+    radius: 5, // km
+    location: null
+  });
+  const [showProximityFilter, setShowProximityFilter] = useState(false);
   useEffect(() => {
     console.log('🏠 HomeScreen: Refreshing alerts on mount');
     refreshAlerts();
@@ -100,6 +110,61 @@ const HomeScreen = ({ navigation }) => {
 
   const handleProfilePress = () => {
     navigation.navigate('Profile');
+  };
+
+  const handleMapPress = () => {
+    navigation.navigate('Map', { 
+      initialAlerts: alerts || [],
+      userLocation: proximityFilter.location
+    });
+  };
+
+  const handleProximityFilterToggle = () => {
+    if (proximityFilter.enabled) {
+      // Si está activo, desactivar el filtro
+      handleProximityFilterClear();
+    } else {
+      // Si no está activo, mostrar el modal
+      setShowProximityFilter(true);
+    }
+  };
+
+  const handleProximityFilterApply = async (radius) => {
+    try {
+      const location = await getCurrentLocation();
+      if (location) {
+        setProximityFilter({
+          enabled: true,
+          radius: radius,
+          location: location
+        });
+        setShowProximityFilter(false);
+        
+        // Aquí podrías filtrar las alertas por proximidad
+        // Por ahora solo actualizamos el estado visual
+        Alert.alert(
+          'Filtro aplicado',
+          `Mostrando alertas dentro de ${radius}km de tu ubicación`
+        );
+      } else {
+        Alert.alert(
+          'Error',
+          'No se pudo obtener tu ubicación para aplicar el filtro'
+        );
+      }
+    } catch (error) {
+      console.error('Error applying proximity filter:', error);
+      Alert.alert('Error', 'No se pudo aplicar el filtro de proximidad');
+    }
+  };
+
+  const handleProximityFilterClear = () => {
+    setProximityFilter({
+      enabled: false,
+      radius: 5,
+      location: null
+    });
+    setShowProximityFilter(false);
   };
 
   const renderFilterButton = (type, label, icon) => {
@@ -217,6 +282,33 @@ const HomeScreen = ({ navigation }) => {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Map and Proximity Actions */}
+      <View style={styles.actionsSection}>
+        <TouchableOpacity
+          style={styles.mapButton}
+          onPress={handleMapPress}
+        >
+          <Text style={styles.mapButtonIcon}>🗺️</Text>
+          <Text style={styles.mapButtonText}>Ver en Mapa</Text>
+        </TouchableOpacity>
+        
+        <TouchableOpacity
+          style={[
+            styles.proximityButton,
+            proximityFilter.enabled && styles.proximityButtonActive
+          ]}
+          onPress={handleProximityFilterToggle}
+        >
+          <Text style={styles.proximityButtonIcon}>📍</Text>
+          <Text style={[
+            styles.proximityButtonText,
+            proximityFilter.enabled && styles.proximityButtonTextActive
+          ]}>
+            {proximityFilter.enabled ? `${proximityFilter.radius}km` : 'Cerca de ti'}
+          </Text>
+        </TouchableOpacity>
+      </View>
     </View>
   );
 
@@ -333,6 +425,15 @@ const HomeScreen = ({ navigation }) => {
       >
         <Text style={styles.fabIcon}>+</Text>
       </TouchableOpacity>
+
+      {/* Proximity Filter Modal */}
+      <ProximityFilter
+        visible={showProximityFilter}
+        currentRadius={proximityFilter.radius}
+        onClose={() => setShowProximityFilter(false)}
+        onApply={handleProximityFilterApply}
+        onClear={handleProximityFilterClear}
+      />
     </SafeAreaView>
   );
 };
@@ -467,6 +568,56 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: COLORS.primary,
     textDecorationLine: 'underline',
+  },
+  actionsSection: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 12,
+  },
+  mapButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.primary,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  mapButtonIcon: {
+    fontSize: 16,
+  },
+  mapButtonText: {
+    color: COLORS.white,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  proximityButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: COLORS.lightGray,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    gap: 8,
+  },
+  proximityButtonActive: {
+    backgroundColor: COLORS.secondary,
+  },
+  proximityButtonIcon: {
+    fontSize: 16,
+  },
+  proximityButtonText: {
+    color: COLORS.text,
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  proximityButtonTextActive: {
+    color: COLORS.white,
   },
   gridList: {
     flex: 1,

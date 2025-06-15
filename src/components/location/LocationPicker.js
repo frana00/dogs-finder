@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ActivityIndicator } from 'react-native';
 import { COLORS } from '../../utils/constants';
-import { getCurrentLocation, formatCoordinates } from '../../utils/location';
+import { getCurrentLocation, formatCoordinates, coordinatesToAddress } from '../../utils/location';
 import Input from '../common/Input';
 
 const LocationPicker = ({ 
@@ -28,22 +28,45 @@ const LocationPicker = ({
       const location = await getCurrentLocation();
       
       if (location) {
-        const formattedCoords = formatCoordinates(location.latitude, location.longitude);
-        
-        setCoordinates({
-          latitude: location.latitude,
-          longitude: location.longitude
-        });
-        
-        setManualLocation(formattedCoords);
-        
-        // Notificar al componente padre
-        onLocationSelect?.({
-          location: formattedCoords,
-          latitude: location.latitude,
-          longitude: location.longitude,
-          source: 'GPS'
-        });
+        // Try to get address from coordinates
+        try {
+          const address = await coordinatesToAddress(location.latitude, location.longitude);
+          const displayLocation = address || formatCoordinates(location.latitude, location.longitude);
+          
+          setCoordinates({
+            latitude: location.latitude,
+            longitude: location.longitude
+          });
+          
+          setManualLocation(displayLocation);
+          
+          // Notificar al componente padre con la dirección convertida
+          onLocationSelect?.({
+            location: displayLocation,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            source: 'GPS'
+          });
+        } catch (addressError) {
+          console.error('Error converting coordinates to address:', addressError);
+          
+          // Fallback to coordinates if address conversion fails
+          const formattedCoords = formatCoordinates(location.latitude, location.longitude);
+          
+          setCoordinates({
+            latitude: location.latitude,
+            longitude: location.longitude
+          });
+          
+          setManualLocation(formattedCoords);
+          
+          onLocationSelect?.({
+            location: formattedCoords,
+            latitude: location.latitude,
+            longitude: location.longitude,
+            source: 'GPS'
+          });
+        }
       }
     } catch (error) {
       console.error('Error getting location:', error);

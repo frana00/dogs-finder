@@ -75,6 +75,115 @@ export const formatCoordinates = (latitude, longitude) => {
 };
 
 /**
+ * Convierte coordenadas a una dirección legible usando geocodificación inversa
+ * @param {number} latitude 
+ * @param {number} longitude 
+ * @returns {Promise<string>} Dirección formateada o coordenadas como fallback
+ */
+export const coordinatesToAddress = async (latitude, longitude) => {
+  if (!latitude || !longitude || !isValidCoordinates(latitude, longitude)) {
+    return '';
+  }
+
+  try {
+    console.log(`🗺️ Converting coordinates to address: ${latitude}, ${longitude}`);
+    
+    const result = await Location.reverseGeocodeAsync({
+      latitude: parseFloat(latitude),
+      longitude: parseFloat(longitude),
+    });
+
+    if (result && result.length > 0) {
+      const address = result[0];
+      console.log('🏠 Geocoding result:', address);
+      
+      // Construir dirección legible
+      let formattedAddress = '';
+      
+      // Agregar calle y número si están disponibles
+      if (address.name || address.street) {
+        formattedAddress += address.name || address.street;
+      }
+      
+      // Agregar número de calle si está disponible y no está ya incluido
+      if (address.streetNumber && formattedAddress && !formattedAddress.includes(address.streetNumber)) {
+        formattedAddress += ` ${address.streetNumber}`;
+      }
+      
+      // Agregar distrito/barrio si está disponible
+      if (address.district && !formattedAddress.includes(address.district)) {
+        formattedAddress += formattedAddress ? `, ${address.district}` : address.district;
+      }
+      
+      // Agregar ciudad si está disponible
+      if (address.city && !formattedAddress.includes(address.city)) {
+        formattedAddress += formattedAddress ? `, ${address.city}` : address.city;
+      }
+      
+      // Agregar región/estado si está disponible
+      if (address.region && !formattedAddress.includes(address.region)) {
+        formattedAddress += formattedAddress ? `, ${address.region}` : address.region;
+      }
+      
+      // Si no tenemos información detallada, usar lo que esté disponible
+      if (!formattedAddress) {
+        if (address.formattedAddress) {
+          formattedAddress = address.formattedAddress;
+        } else if (address.city || address.region) {
+          formattedAddress = [address.city, address.region].filter(Boolean).join(', ');
+        }
+      }
+      
+      // Limpiar dirección y asegurar que no esté vacía
+      formattedAddress = formattedAddress.trim();
+      
+      if (formattedAddress) {
+        console.log(`✅ Address converted: ${formattedAddress}`);
+        return `📍 ${formattedAddress}`;
+      }
+    }
+    
+    console.log('⚠️ No address found, using coordinates as fallback');
+    return formatCoordinates(latitude, longitude);
+    
+  } catch (error) {
+    console.error('Error converting coordinates to address:', error);
+    // Fallback a las coordenadas formateadas si la geocodificación falla
+    return formatCoordinates(latitude, longitude);
+  }
+};
+
+/**
+ * Convierte coordenadas a dirección con caché para evitar llamadas repetidas
+ * @param {number} latitude 
+ * @param {number} longitude 
+ * @param {Object} cache - Objeto de caché (opcional)
+ * @returns {Promise<string>} Dirección formateada
+ */
+export const coordinatesToAddressWithCache = async (latitude, longitude, cache = null) => {
+  if (!latitude || !longitude) return '';
+  
+  // Crear clave de caché basada en coordenadas redondeadas (para agrupar ubicaciones cercanas)
+  const cacheKey = `${latitude.toFixed(3)}_${longitude.toFixed(3)}`;
+  
+  // Verificar caché si se proporciona
+  if (cache && cache[cacheKey]) {
+    console.log(`💾 Using cached address for ${cacheKey}`);
+    return cache[cacheKey];
+  }
+  
+  // Obtener dirección
+  const address = await coordinatesToAddress(latitude, longitude);
+  
+  // Guardar en caché si se proporciona
+  if (cache) {
+    cache[cacheKey] = address;
+  }
+  
+  return address;
+};
+
+/**
  * Valida que las coordenadas sean válidas
  * @param {number} latitude 
  * @param {number} longitude 

@@ -6,6 +6,14 @@ export const API_CONFIG = {
   TIMEOUT: 10000,
 };
 
+// Google Places API Configuration
+export const GOOGLE_PLACES_CONFIG = {
+  API_KEY: process.env.EXPO_PUBLIC_GOOGLE_PLACES_API_KEY || '', // Desde variable de entorno
+  BASE_URL: 'https://maps.googleapis.com/maps/api/place',
+  AUTOCOMPLETE_ENDPOINT: '/autocomplete/json',
+  DETAILS_ENDPOINT: '/details/json',
+};
+
 // Date format for API
 export const DATE_FORMAT = 'yyyy-MM-dd HH:mm:ss';
 

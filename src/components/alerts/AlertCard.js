@@ -8,6 +8,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { COLORS, ALERT_TYPES } from '../../utils/constants';
+import { AddressDisplay } from '../common';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 48) / 2; // 2 columns with padding
@@ -181,9 +182,19 @@ const AlertCard = ({ alert, onPress, style }) => {
           {alert.breed || 'Raza no especificada'}
         </Text>
         
-        <Text style={styles.location} numberOfLines={1}>
-          {alert.location?.includes('📍') ? formatLocation(alert.location) : `📍 ${formatLocation(alert.location)}`}
-        </Text>
+        {/* Show AddressDisplay if we have coordinates, otherwise show text location */}
+        {alert.latitude && alert.longitude ? (
+          <AddressDisplay
+            latitude={alert.latitude}
+            longitude={alert.longitude}
+            textStyle={styles.location}
+            showLoading={false}
+          />
+        ) : (
+          <Text style={styles.location} numberOfLines={1}>
+            {alert.location?.includes('📍') ? formatLocation(alert.location) : `📍 ${formatLocation(alert.location)}`}
+          </Text>
+        )}
         
         <View style={styles.footer}>
           <Text style={styles.date}>

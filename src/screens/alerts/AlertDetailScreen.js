@@ -19,6 +19,7 @@ import { getPostsForAlert, createPost, updatePost, deletePost } from '../../serv
 import { COLORS, ALERT_TYPES, PET_SEX, PET_SIZE } from '../../utils/constants';
 import Loading from '../../components/common/Loading';
 import ErrorMessage from '../../components/common/ErrorMessage';
+import { AddressDisplay } from '../../components/common';
 import PhotoGallery from '../../components/photos/PhotoGallery';
 import PhotoPicker from '../../components/photos/PhotoPicker';
 import { PostsList, PostForm } from '../../components/posts';
@@ -573,9 +574,19 @@ Comparte para ayudar! 🐾`;
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Ubicación y Fecha</Text>
           <View style={styles.locationContainer}>
-            <Text style={styles.locationText}>
-              {currentAlert.location?.includes('📍') ? currentAlert.location : `📍 ${currentAlert.location}`}
-            </Text>
+            {/* Show AddressDisplay if we have coordinates, otherwise show text location */}
+            {currentAlert.latitude && currentAlert.longitude ? (
+              <AddressDisplay
+                latitude={currentAlert.latitude}
+                longitude={currentAlert.longitude}
+                textStyle={styles.locationText}
+                showLoading={true}
+              />
+            ) : (
+              <Text style={styles.locationText}>
+                {currentAlert.location?.includes('📍') ? currentAlert.location : `📍 ${currentAlert.location}`}
+              </Text>
+            )}
             <Text style={styles.dateText}>
               📅 {formatDate(currentAlert.date)}
             </Text>

@@ -15,7 +15,8 @@ import Input from '../common/Input';
 import Button from '../common/Button';
 import ErrorMessage from '../common/ErrorMessage';
 import { PhotoPicker } from '../photos';
-import { LocationPicker } from '../location';
+import { LocationPicker, LocationAutocomplete } from '../location';
+import { coordinatesToAddress } from '../../utils/location';
 
 // Note: Temporarily removed react-native-date-picker due to NativeEventEmitter issues
 // Will use platform-specific date picker implementations
@@ -54,6 +55,7 @@ const AlertForm = ({
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [convertedAddress, setConvertedAddress] = useState('');
 
   // Load initial data if editing
   useEffect(() => {
@@ -253,6 +255,25 @@ const AlertForm = ({
     checkFormValidity();
   }, [formData]);
 
+  // Convert coordinates to address when they change
+  useEffect(() => {
+    const convertCoordinatesToAddress = async () => {
+      if (formData.latitude && formData.longitude) {
+        try {
+          const address = await coordinatesToAddress(formData.latitude, formData.longitude);
+          setConvertedAddress(address);
+        } catch (error) {
+          console.error('Error converting coordinates to address:', error);
+          setConvertedAddress('');
+        }
+      } else {
+        setConvertedAddress('');
+      }
+    };
+
+    convertCoordinatesToAddress();
+  }, [formData.latitude, formData.longitude]);
+
   const updateField = (field, value) => {
     setFormData(prev => ({ ...prev, [field]: value }));
     // Clear error for this field
@@ -261,18 +282,24 @@ const AlertForm = ({
     }
   };
 
-  // Handle location selection from LocationPicker
+  // Handle location selection from LocationAutocomplete
   const handleLocationSelect = (locationData) => {
-    setFormData(prev => ({
-      ...prev,
+    console.log('🏠 LocationAutocomplete selection:', locationData);
+    
+    const newFormData = {
+      ...formData,
       location: locationData.location,
       latitude: locationData.latitude,
       longitude: locationData.longitude,
       locationSource: locationData.source
-    }));
+    };
+    
+    console.log('🏠 Updated formData location:', newFormData.location);
+    setFormData(newFormData);
     
     // Clear location error if exists
     if (errors.location) {
+      console.log('🏠 Clearing location error');
       setErrors(prev => ({ ...prev, location: null }));
     }
   };
@@ -297,7 +324,10 @@ const AlertForm = ({
     }
 
     if (!formData.location.trim()) {
+      console.log('🚨 Validation: location is empty:', JSON.stringify(formData.location));
       newErrors.location = 'La ubicación es requerida';
+    } else {
+      console.log('✅ Validation: location is valid:', JSON.stringify(formData.location));
     }
 
     // POSTAL CODE IS NOT MANDATORY - only validate format if provided
@@ -606,14 +636,17 @@ const AlertForm = ({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ubicación y Fecha</Text>
         
-        <LocationPicker
+        {/* Usar LocationAutocomplete para autocompletado */}
+        <LocationAutocomplete
           onLocationSelect={handleLocationSelect}
-          initialLocation={formData.location}
-          initialLatitude={formData.latitude}
-          initialLongitude={formData.longitude}
-          error={errors.location}
+          initialValue={formData.location}
+          placeholder="Escribe la ubicación donde se perdió/encontró..."
           disabled={loading}
         />
+        
+        {errors.location && (
+          <ErrorMessage message={errors.location} />
+        )}
 
         <View style={styles.row}>
           <View style={styles.halfWidth}>
@@ -737,7 +770,8 @@ const AlertForm = ({
           {/* NEW: Geolocation Debug */}
           <Text style={{ fontSize: 12, color: '#008000', fontWeight: 'bold' }}>📍 GEOLOCATION:</Text>
           <Text style={{ fontSize: 12, color: '#008000' }}>Location: {formData.location || 'Not set'}</Text>
-          <Text style={{ fontSize: 12, color: '#008000' }}>GPS: {formData.latitude && formData.longitude ? 
+          <Text style={{ fontSize: 12, color: '#008000' }}>GPS Address: {convertedAddress || 'Converting...'}</Text>
+          <Text style={{ fontSize: 12, color: '#008000' }}>Raw Coords: {formData.latitude && formData.longitude ? 
             `${formData.latitude.toFixed(4)}, ${formData.longitude.toFixed(4)}` : 'Not available'}</Text>
           <Text style={{ fontSize: 12, color: '#008000' }}>Source: {formData.locationSource}</Text>
         </View>

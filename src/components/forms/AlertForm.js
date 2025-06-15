@@ -8,9 +8,11 @@ import {
   Alert,
   Platform,
   Image,
+  ActivityIndicator,
 } from 'react-native';
 import { COLORS, ALERT_TYPES, PET_SEX, LOCATION_SOURCE } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
+import { getCurrentLocation } from '../../utils/location';
 import Input from '../common/Input';
 import Button from '../common/Button';
 import ErrorMessage from '../common/ErrorMessage';
@@ -56,6 +58,12 @@ const AlertForm = ({
   const [selectedPhotos, setSelectedPhotos] = useState([]);
   const [isFormValid, setIsFormValid] = useState(false);
   const [convertedAddress, setConvertedAddress] = useState('');
+  
+  // New GPS/Location states
+  const [locationMode, setLocationMode] = useState('auto'); // 'auto', 'gps', 'postal', 'manual'
+  const [gpsLoading, setGpsLoading] = useState(false);
+  const [gpsError, setGpsError] = useState(null);
+  const [showPostalFallback, setShowPostalFallback] = useState(false);
 
   // Load initial data if editing
   useEffect(() => {
@@ -250,7 +258,7 @@ const AlertForm = ({
           type: formData.type
         }
       });
-     };
+     }
     
     checkFormValidity();
   }, [formData]);
@@ -314,6 +322,100 @@ const AlertForm = ({
     }
   }, [formData.location, formData.latitude, formData.longitude, formData.locationSource]);
 
+  // GPS/Location handling functions
+  const tryGetGPSLocation = async () => {
+    setGpsLoading(true);
+    setGpsError(null);
+    
+    try {
+      console.log('🛰️ AlertForm: Attempting to get GPS location...');
+      const gpsLocation = await getCurrentLocation();
+      
+      if (gpsLocation) {
+        console.log('🛰️ AlertForm: GPS location obtained:', gpsLocation);
+        
+        // Update form with GPS coordinates
+        const newFormData = {
+          ...formData,
+          latitude: gpsLocation.latitude,
+          longitude: gpsLocation.longitude,
+          locationSource: LOCATION_SOURCE.GPS,
+          location: `${gpsLocation.latitude.toFixed(6)}, ${gpsLocation.longitude.toFixed(6)}`, // Temporary display
+          // Clear postal code fields since we have GPS
+          postalCode: '',
+          countryCode: 'ES', // Keep default
+        };
+        
+        setFormData(newFormData);
+        setLocationMode('gps');
+        
+        // Try to get human-readable address
+        try {
+          const address = await coordinatesToAddress(gpsLocation.latitude, gpsLocation.longitude);
+          if (address) {
+            setFormData(prev => ({
+              ...prev,
+              location: address
+            }));
+          }
+        } catch (addressError) {
+          console.warn('Could not convert GPS to address:', addressError);
+        }
+        
+      } else {
+        console.log('🛰️ AlertForm: GPS location not available, showing postal fallback');
+        setGpsError('No se pudo obtener la ubicación GPS');
+        setShowPostalFallback(true);
+        setLocationMode('postal');
+      }
+    } catch (error) {
+      console.error('🛰️ AlertForm: Error getting GPS location:', error);
+      setGpsError('Error al obtener ubicación GPS');
+      setShowPostalFallback(true);
+      setLocationMode('postal');
+    } finally {
+      setGpsLoading(false);
+    }
+  };
+
+  const switchToManualLocation = () => {
+    setLocationMode('manual');
+    setShowPostalFallback(false);
+    setGpsError(null);
+    
+    // Clear GPS data
+    setFormData(prev => ({
+      ...prev,
+      latitude: null,
+      longitude: null,
+      locationSource: LOCATION_SOURCE.MANUAL,
+      location: '',
+    }));
+  };
+
+  const switchToPostalMode = () => {
+    setLocationMode('postal');
+    setShowPostalFallback(true);
+    setGpsError(null);
+    
+    // Clear GPS data
+    setFormData(prev => ({
+      ...prev,
+      latitude: null,
+      longitude: null,
+      locationSource: LOCATION_SOURCE.MANUAL,
+      location: '',
+    }));
+  };
+
+  // Auto-try GPS on component mount (only for new alerts)
+  useEffect(() => {
+    if (!initialData && locationMode === 'auto') {
+      console.log('🛰️ AlertForm: Auto-trying GPS location for new alert...');
+      tryGetGPSLocation();
+    }
+  }, [initialData, locationMode]);
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -333,20 +435,25 @@ const AlertForm = ({
       newErrors.description = 'La descripción es requerida';
     }
 
-    if (!formData.location.trim()) {
-      console.log('🚨 Validation: location is empty:', JSON.stringify(formData.location));
-      newErrors.location = 'La ubicación es requerida';
+    // NEW VALIDATION: Either GPS coordinates OR postal code is required
+    const hasGPSLocation = formData.latitude && formData.longitude;
+    const hasPostalCode = formData.postalCode && formData.postalCode.trim();
+    
+    if (!hasGPSLocation && !hasPostalCode) {
+      console.log('🚨 Validation: Neither GPS nor postal code provided');
+      newErrors.location = 'Se requiere ubicación GPS o código postal';
     } else {
-      console.log('✅ Validation: location is valid:', JSON.stringify(formData.location));
+      console.log('✅ Validation: Location provided -', hasGPSLocation ? 'GPS' : 'Postal');
     }
 
-    // POSTAL CODE IS NOT MANDATORY - only validate format if provided
-    if (formData.postalCode && formData.postalCode.trim() && !/^\d{4,6}$/.test(formData.postalCode.trim())) {
-      newErrors.postalCode = 'Si proporcionas código postal, debe tener entre 4 y 6 dígitos';
+    // Validate postal code format if provided
+    if (hasPostalCode && !/^\d{4,6}$/.test(formData.postalCode.trim())) {
+      newErrors.postalCode = 'El código postal debe tener entre 4 y 6 dígitos';
     }
 
-    if (!formData.countryCode.trim()) {
-      newErrors.countryCode = 'El código del país es requerido';
+    // Country code is only required if using postal code
+    if (hasPostalCode && !formData.countryCode.trim()) {
+      newErrors.countryCode = 'El código del país es requerido cuando usas código postal';
     }
 
     if (!formData.contactPhone.trim()) {
@@ -416,16 +523,24 @@ const AlertForm = ({
         description: extendedDescription, // Send the potentially augmented description
         breed: formData.breed || '',
         sex: formData.sex,
-        countryCode: formData.countryCode,
         date: formData.date.toISOString(),
         status: 'ACTIVE', // Default status
         
-        // Location data - NEW GEOLOCATION FEATURE
-        location: formData.location, // Human-readable location string
-        ...(formData.latitude && formData.longitude && {
+        // NEW BACKEND LOGIC: GPS OR postal code (not both)
+        // Priority: GPS coordinates first, postal code as fallback
+        ...(formData.latitude && formData.longitude ? {
+          // GPS coordinates available - send GPS data only
           latitude: formData.latitude,
           longitude: formData.longitude,
-          locationSource: formData.locationSource
+          location: formData.location, // Human-readable location string
+          locationSource: formData.locationSource,
+          // Don't send postal code when we have GPS
+        } : {
+          // No GPS - send postal code as fallback
+          postalCode: formData.postalCode || "04001", // Use provided or default
+          countryCode: formData.countryCode || "ES", // Use provided or default
+          locationSource: LOCATION_SOURCE.MANUAL,
+          // Don't send GPS fields when using postal code
         }),
         
         // Campos opcionales del backend
@@ -436,16 +551,7 @@ const AlertForm = ({
           photoFilenames: selectedPhotos.map(photo => photo.filename || `photo_${Date.now()}.jpg`),
           photos: selectedPhotos, // Para el procesamiento posterior
         }),
-        
-        // Usar postal code válido del backend - según documentación del backend, "04001" es un código válido
-        // Si el usuario proporcionó un código postal, lo agregamos a la descripción
-        postalCode: "04001", // Código postal de ejemplo válido según backend.txt
       };
-      
-      // Agregar código postal del usuario a la descripción si se proporcionó uno diferente
-      if (formData.postalCode && formData.postalCode.trim() && formData.postalCode.trim() !== "04001") {
-        submitData.description += `\nCódigo Postal proporcionado: ${formData.postalCode.trim()}`;
-      }
 
       console.log('📤 SUBMIT DATA DEBUG:', {
         titleInFormData: formData.title,
@@ -649,13 +755,126 @@ const AlertForm = ({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ubicación y Fecha</Text>
         
-        {/* Usar LocationAutocomplete para autocompletado */}
-        <LocationAutocomplete
-          onLocationSelect={handleLocationSelect}
-          initialValue={formData.location}
-          placeholder="Escribe la ubicación donde se perdió/encontró..."
-          disabled={loading}
-        />
+        {/* GPS/Location Mode Selection */}
+        <View style={styles.locationModeContainer}>
+          <Text style={styles.locationModeTitle}>Método de ubicación:</Text>
+          
+          {locationMode === 'auto' && (
+            <View style={styles.autoModeContainer}>
+              {gpsLoading ? (
+                <View style={styles.gpsLoadingContainer}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={styles.gpsLoadingText}>Obteniendo ubicación GPS...</Text>
+                </View>
+              ) : gpsError ? (
+                <View style={styles.gpsErrorContainer}>
+                  <Text style={styles.gpsErrorText}>{gpsError}</Text>
+                  <Button
+                    title="Reintentar GPS"
+                    onPress={tryGetGPSLocation}
+                    size="small"
+                    style={styles.retryButton}
+                  />
+                </View>
+              ) : null}
+            </View>
+          )}
+          
+          <View style={styles.locationModeButtons}>
+            <TouchableOpacity
+              style={[
+                styles.locationModeButton,
+                locationMode === 'gps' && styles.locationModeButtonActive
+              ]}
+              onPress={tryGetGPSLocation}
+            >
+              <Text style={[
+                styles.locationModeButtonText,
+                locationMode === 'gps' && styles.locationModeButtonTextActive
+              ]}>
+                📍 GPS Automático
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.locationModeButton,
+                locationMode === 'manual' && styles.locationModeButtonActive
+              ]}
+              onPress={switchToManualLocation}
+            >
+              <Text style={[
+                styles.locationModeButtonText,
+                locationMode === 'manual' && styles.locationModeButtonTextActive
+              ]}>
+                ✏️ Escribir Ubicación
+              </Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.locationModeButton,
+                locationMode === 'postal' && styles.locationModeButtonActive
+              ]}
+              onPress={switchToPostalMode}
+            >
+              <Text style={[
+                styles.locationModeButtonText,
+                locationMode === 'postal' && styles.locationModeButtonTextActive
+              ]}>
+                📮 Código Postal
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+        
+        {/* GPS Mode - Show GPS info */}
+        {locationMode === 'gps' && formData.latitude && formData.longitude && (
+          <View style={styles.gpsInfoContainer}>
+            <Text style={styles.gpsInfoTitle}>📍 Ubicación GPS detectada:</Text>
+            <Text style={styles.gpsInfoText}>{formData.location}</Text>
+            <Text style={styles.gpsCoords}>
+              Lat: {formData.latitude.toFixed(6)}, Lng: {formData.longitude.toFixed(6)}
+            </Text>
+          </View>
+        )}
+        
+        {/* Manual Mode - Show autocomplete */}
+        {locationMode === 'manual' && (
+          <LocationAutocomplete
+            onLocationSelect={handleLocationSelect}
+            initialValue={formData.location}
+            placeholder="Escribe la ubicación donde se perdió/encontró..."
+            disabled={loading}
+          />
+        )}
+        
+        {/* Postal Mode - Show postal code inputs */}
+        {locationMode === 'postal' && (
+          <View style={styles.postalModeContainer}>
+            <View style={styles.row}>
+              <View style={styles.halfWidth}>
+                <Input
+                  label="Código Postal"
+                  value={formData.postalCode}
+                  onChangeText={(value) => updateField('postalCode', value)}
+                  placeholder="Ej: 28001"
+                  error={errors.postalCode}
+                  keyboardType="numeric"
+                />
+              </View>
+              <View style={styles.halfWidth}>
+                <Input
+                  label="País"
+                  value={formData.countryCode}
+                  onChangeText={(value) => updateField('countryCode', value)}
+                  placeholder="ES"
+                  error={errors.countryCode}
+                />
+              </View>
+            </View>
+          </View>
+        )}
         
         {errors.location && (
           <ErrorMessage message={errors.location} />
@@ -1179,6 +1398,105 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: COLORS.error,
     marginBottom: 4,
+  },
+  
+  // New GPS/Location Mode styles
+  locationModeContainer: {
+    marginBottom: 16,
+  },
+  locationModeTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: COLORS.text,
+    marginBottom: 12,
+  },
+  locationModeButtons: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
+  locationModeButton: {
+    flex: 1,
+    paddingVertical: 12,
+    paddingHorizontal: 8,
+    backgroundColor: COLORS.lightGray,
+    borderRadius: 8,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: COLORS.lightGray,
+  },
+  locationModeButtonActive: {
+    backgroundColor: COLORS.primary,
+    borderColor: COLORS.primary,
+  },
+  locationModeButtonText: {
+    fontSize: 12,
+    color: COLORS.text,
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  locationModeButtonTextActive: {
+    color: COLORS.white,
+  },
+  autoModeContainer: {
+    marginBottom: 12,
+  },
+  gpsLoadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: COLORS.background,
+    borderRadius: 8,
+    gap: 8,
+  },
+  gpsLoadingText: {
+    fontSize: 14,
+    color: COLORS.textSecondary,
+  },
+  gpsErrorContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#ffebee',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.error,
+  },
+  gpsErrorText: {
+    fontSize: 14,
+    color: COLORS.error,
+    marginBottom: 8,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+  },
+  gpsInfoContainer: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    backgroundColor: '#e8f5e8',
+    borderRadius: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: COLORS.success,
+    marginBottom: 12,
+  },
+  gpsInfoTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: COLORS.success,
+    marginBottom: 4,
+  },
+  gpsInfoText: {
+    fontSize: 14,
+    color: COLORS.text,
+    marginBottom: 4,
+  },
+  gpsCoords: {
+    fontSize: 12,
+    color: COLORS.textSecondary,
+    fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+  },
+  postalModeContainer: {
+    marginTop: 8,
   },
 });
 

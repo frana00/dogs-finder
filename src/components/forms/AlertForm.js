@@ -9,7 +9,7 @@ import {
   Platform,
   Image,
 } from 'react-native';
-import { COLORS, ALERT_TYPES, PET_SEX } from '../../utils/constants';
+import { COLORS, ALERT_TYPES, PET_SEX, LOCATION_SOURCE } from '../../utils/constants';
 import { useAuth } from '../../context/AuthContext';
 import Input from '../common/Input';
 import Button from '../common/Button';
@@ -41,7 +41,7 @@ const AlertForm = ({
     location: '',
     latitude: null,
     longitude: null,
-    locationSource: 'MANUAL',
+    locationSource: LOCATION_SOURCE.MANUAL,
     postalCode: '',
     countryCode: 'ES',
     contactPhone: '',
@@ -150,7 +150,7 @@ const AlertForm = ({
         location: '',
         latitude: null,
         longitude: null,
-        locationSource: 'MANUAL',
+        locationSource: LOCATION_SOURCE.MANUAL,
         postalCode: '',
         countryCode: 'ES',
         contactPhone: '',
@@ -284,25 +284,35 @@ const AlertForm = ({
 
   // Handle location selection from LocationAutocomplete
   const handleLocationSelect = (locationData) => {
-    console.log('🏠 LocationAutocomplete selection:', locationData);
+    console.log('🏠 AlertForm: Received locationData in handleLocationSelect:', JSON.stringify(locationData));
     
     const newFormData = {
       ...formData,
       location: locationData.location,
       latitude: locationData.latitude,
       longitude: locationData.longitude,
-      locationSource: locationData.source
+      locationSource: locationData.source,
     };
-    
-    console.log('🏠 Updated formData location:', newFormData.location);
+    console.log('🏠 AlertForm: Attempting to set new formData:', JSON.stringify(newFormData));
     setFormData(newFormData);
     
-    // Clear location error if exists
     if (errors.location) {
-      console.log('🏠 Clearing location error');
+      console.log('🏠 AlertForm: Clearing location error.');
       setErrors(prev => ({ ...prev, location: null }));
     }
   };
+
+  // Add a new useEffect to monitor changes to location fields specifically
+  useEffect(() => {
+    if (formData.location !== undefined || formData.latitude !== undefined || formData.longitude !== undefined) { // Log even if they become undefined/null
+      console.log(
+        '🏠 AlertForm: formData changed. Location:', formData.location, 
+        'Lat:', formData.latitude, 
+        'Lng:', formData.longitude,
+        'Source:', formData.locationSource
+      );
+    }
+  }, [formData.location, formData.latitude, formData.longitude, formData.locationSource]);
 
   const validateForm = () => {
     const newErrors = {};
@@ -430,7 +440,9 @@ const AlertForm = ({
         // Usar postal code válido del backend - según documentación del backend, "04001" es un código válido
         // Si el usuario proporcionó un código postal, lo agregamos a la descripción
         postalCode: "04001", // Código postal de ejemplo válido según backend.txt
-      };      // Agregar código postal del usuario a la descripción si se proporcionó uno diferente
+      };
+      
+      // Agregar código postal del usuario a la descripción si se proporcionó uno diferente
       if (formData.postalCode && formData.postalCode.trim() && formData.postalCode.trim() !== "04001") {
         submitData.description += `\nCódigo Postal proporcionado: ${formData.postalCode.trim()}`;
       }
@@ -479,6 +491,7 @@ const AlertForm = ({
       style={[styles.container, style]} 
       contentContainerStyle={styles.scrollContent}
       showsVerticalScrollIndicator={false}
+      keyboardShouldPersistTaps="always"
     >
       {/* Alert Type */}
       <View style={styles.section}>

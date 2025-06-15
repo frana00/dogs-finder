@@ -50,6 +50,14 @@ export const PET_SIZE = {
   LARGE: 'LARGE',
 };
 
+// Location source (max 10 characters for DB column)
+export const LOCATION_SOURCE = {
+  MANUAL: 'MANUAL',     // 6 chars - Usuario ingresó manualmente
+  AUTO: 'AUTO',         // 4 chars - Autocompletado/Places API  
+  GPS: 'GPS',           // 3 chars - GPS del dispositivo
+  ERROR: 'ERROR',       // 5 chars - Fallback en caso de error
+};
+
 // Colors for UI
 export const COLORS = {
   primary: '#FF6B35',     // Orange for lost pets

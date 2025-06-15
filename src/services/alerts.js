@@ -127,21 +127,42 @@ export const updateAlert = async (alertId, alertData) => {
     Object.entries(alertData).filter(([_, value]) => value !== undefined && value !== null && value !== '')
   );
   
-  console.log('📤 Updating alert with data:', cleanData);
+  console.log('📤 Updating alert with ID:', alertId);
+  console.log('📤 Original alert data:', alertData);
+  console.log('📤 Clean alert data:', cleanData);
+  console.log('🔍 LocationSource analysis:');
+  console.log('  - locationSource value:', cleanData.locationSource);
+  console.log('  - locationSource type:', typeof cleanData.locationSource);
+  console.log('  - locationSource length:', cleanData.locationSource ? cleanData.locationSource.length : 'N/A');
+  console.log('  - locationSource JSON:', JSON.stringify(cleanData.locationSource));
   
   console.log('🔍 UPDATE ALERT DEBUG:', {
     originalAlertData: alertData,
     cleanData: cleanData,
     petNameInOriginal: alertData.petName,
     petNameInClean: cleanData.petName,
-    hasPetNameInClean: !!cleanData.petName
+    hasPetNameInClean: !!cleanData.petName,
+    locationInOriginal: alertData.location,
+    locationInClean: cleanData.location,
+    latitudeInClean: cleanData.latitude,
+    longitudeInClean: cleanData.longitude
   });
   
-  const response = await apiClient.put(`/alerts/${alertId}`, cleanData);
-  
-  console.log('📥 UPDATE ALERT RESPONSE:', response.data);
-  
-  return response.data;
+  try {
+    const response = await apiClient.put(`/alerts/${alertId}`, cleanData);
+    
+    console.log('📥 UPDATE ALERT RESPONSE SUCCESS:', response.data);
+    
+    return response.data;
+  } catch (error) {
+    console.log('❌ UPDATE ALERT ERROR:', error);
+    console.log('❌ Error response data:', error.response?.data);
+    console.log('❌ Error response status:', error.response?.status);
+    console.log('❌ Error response headers:', error.response?.headers);
+    console.log('❌ Error request data sent:', cleanData);
+    
+    throw error;
+  }
 };
 
 /**

@@ -125,6 +125,7 @@ export const getPlaceDetails = async (placeId) => {
   }
 
   try {
+    console.log('🟢 getPlaceDetails called with placeId:', placeId); // LOG
     const params = new URLSearchParams({
       place_id: placeId,
       key: GOOGLE_PLACES_CONFIG.API_KEY,
@@ -133,6 +134,7 @@ export const getPlaceDetails = async (placeId) => {
     });
 
     const url = `${GOOGLE_PLACES_CONFIG.BASE_URL}${GOOGLE_PLACES_CONFIG.DETAILS_ENDPOINT}?${params.toString()}`;
+    console.log('🟢 getPlaceDetails fetch URL:', url); // LOG
     
     const response = await fetch(url);
 
@@ -141,6 +143,7 @@ export const getPlaceDetails = async (placeId) => {
     }
 
     const data = await response.json();
+    console.log('🟢 getPlaceDetails response data:', JSON.stringify(data)); // LOG
 
     if (data.status !== 'OK') {
       throw new Error(`Google Places Details API error: ${data.status}`);

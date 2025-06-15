@@ -270,13 +270,32 @@ export const AlertProvider = ({ children }) => {
   const updateExistingAlert = async (alertId, alertData) => {
     try {
       setLoading(true);
+      
+      console.log('🔄 AlertContext: Starting alert update');
+      console.log('🔍 Alert ID:', alertId);
+      console.log('🔍 Alert Data received:', alertData);
+      console.log('🔍 Location in data:', alertData.location);
+      console.log('🔍 Latitude in data:', alertData.latitude);
+      console.log('🔍 Longitude in data:', alertData.longitude);
+      console.log('🔍 Username in data:', alertData.username);
+      
       const updatedAlert = await updateAlert(alertId, alertData);
       dispatch({ type: ACTIONS.UPDATE_ALERT, payload: updatedAlert });
-      setLoading(false); // Add this line
+      setLoading(false);
+      
+      console.log('✅ AlertContext: Alert updated successfully');
+      console.log('📋 Updated alert data:', updatedAlert);
+      
       return updatedAlert;
     } catch (error) {
+      console.log('❌ AlertContext: Error updating alert');
+      console.log('❌ Error object:', error);
+      console.log('❌ Error message:', error.message);
+      console.log('❌ Error response:', error.response?.data);
+      console.log('❌ Error status:', error.response?.status);
+      
       setError(error.message || 'Error al actualizar alerta');
-      setLoading(false); // Add this line
+      setLoading(false);
       throw error;
     }
   };

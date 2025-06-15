@@ -9,7 +9,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
-import { COLORS } from '../../utils/constants';
+import { COLORS, LOCATION_SOURCE } from '../../utils/constants';
 import { searchPlaces, searchNearbyPlaces, getPlaceDetails } from '../../services/places';
 import { getCurrentLocation } from '../../utils/location';
 
@@ -117,67 +117,58 @@ const LocationAutocomplete = ({
   };
 
   const handleSelectPlace = async (place) => {
-    // Inmediatamente ocultar sugerencias
+    console.log('🟠 handleSelectPlace called with:', JSON.stringify(place)); // LOG
+    setJustSelected(true);
     setShowSuggestions(false);
     setSuggestions([]);
     Keyboard.dismiss();
 
     try {
-      // Todos los lugares de Google Places tienen placeId, obtener detalles
       if (place.placeId) {
         setLoading(true);
         const details = await getPlaceDetails(place.placeId);
+        console.log('🟠 handleSelectPlace got details:', JSON.stringify(details)); // LOG
         
         const locationData = {
           location: details.title,
           latitude: details.latitude,
           longitude: details.longitude,
-          source: 'AUTOCOMPLETE',
+          source: LOCATION_SOURCE.AUTO,
           placeData: details,
         };
 
-        // Actualizar el query y notificar al padre
         setQuery(locationData.location);
-        console.log('🌍 LocationAutocomplete calling onLocationSelect with:', locationData);
+        console.log('🌍 LocationAutocomplete: Calling onLocationSelect with:', JSON.stringify(locationData));
         onLocationSelect?.(locationData);
 
       } else {
-        // Fallback: usar solo el texto (no debería ocurrir con Google Places)
+        console.warn('Selected place does not have a placeId:', place);
         const fallbackData = {
-          location: place.title,
-          latitude: null,
-          longitude: null,
-          source: 'AUTOCOMPLETE',
+          location: place.title || query,
+          latitude: place.latitude || null,
+          longitude: place.longitude || null,
+          source: LOCATION_SOURCE.AUTO,
           placeData: place,
         };
-        
-        setQuery(place.title);
-        console.log('🌍 LocationAutocomplete calling onLocationSelect with fallback:', fallbackData);
+        setQuery(fallbackData.location);
+        console.log('🌍 LocationAutocomplete: Calling onLocationSelect with fallbackData (no placeId):', JSON.stringify(fallbackData));
         onLocationSelect?.(fallbackData);
       }
-
-      // Marcar como recién seleccionado por un tiempo corto
-      setJustSelected(true);
-      setTimeout(() => setJustSelected(false), 200);
-
     } catch (error) {
-      console.error('Error getting place details:', error);
-      setError('Error al obtener detalles del lugar');
-      
-      // Fallback: usar solo el texto
-      const fallbackData = {
-        location: place.title,
+      console.error('Error processing place selection:', error);
+      setError('Error al seleccionar el lugar');
+      const errorFallbackData = {
+        location: query,
         latitude: null,
         longitude: null,
-        source: 'AUTOCOMPLETE',
-        placeData: place,
+        source: LOCATION_SOURCE.ERROR,
       };
-      
-      setQuery(place.title);
-      console.log('🌍 LocationAutocomplete calling onLocationSelect with error fallback:', fallbackData);
-      onLocationSelect?.(fallbackData);
+      setQuery(query);
+      console.log('🌍 LocationAutocomplete: Calling onLocationSelect with error fallback data:', JSON.stringify(errorFallbackData));
+      onLocationSelect?.(errorFallbackData);
     } finally {
       setLoading(false);
+      setTimeout(() => setJustSelected(false), 50);
     }
   };
 
@@ -232,7 +223,10 @@ const LocationAutocomplete = ({
         styles.suggestionItem,
         index === suggestions.length - 1 && styles.suggestionItemLast
       ]}
-      onPress={() => handleSelectPlace(item)}
+      onPress={() => {
+        console.log('🟡 SUGGESTION PRESSED:', JSON.stringify(item)); // LOG
+        handleSelectPlace(item);
+      }}
     >
       <View style={styles.suggestionContent}>
         <Text style={styles.suggestionTitle} numberOfLines={1}>
@@ -305,9 +299,14 @@ const LocationAutocomplete = ({
 
         {/* Lista de sugerencias */}
         {showSuggestions && suggestions.length > 0 && (
-          <View style={styles.suggestionsContainer}>
-            {suggestions.map((item, index) => renderSuggestion(item, index))}
-          </View>
+          <FlatList
+            data={suggestions}
+            keyExtractor={(item, index) => item.placeId || item.title || index.toString()}
+            renderItem={({ item, index }) => renderSuggestion(item, index)}
+            style={[styles.suggestionsContainer, { zIndex: 9999, position: 'absolute', top: '100%', left: 0, right: 78 }]}
+            pointerEvents="auto"
+            keyboardShouldPersistTaps="always"
+          />
         )}
       </View>
 

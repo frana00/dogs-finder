@@ -574,7 +574,7 @@ Comparte para ayudar! 🐾`;
           <Text style={styles.sectionTitle}>Ubicación y Fecha</Text>
           <View style={styles.locationContainer}>
             <Text style={styles.locationText}>
-              📍 {currentAlert.location}
+              {currentAlert.location?.includes('📍') ? currentAlert.location : `📍 ${currentAlert.location}`}
             </Text>
             <Text style={styles.dateText}>
               📅 {formatDate(currentAlert.date)}

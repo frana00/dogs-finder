@@ -98,10 +98,17 @@ const AlertCard = ({ alert, onPress, style }) => {
 
   const formatLocation = (location) => {
     if (!location) return 'Sin ubicación';
-    if (location.length > 25) {
-      return location.substring(0, 25) + '...';
+    
+    // Check if location already has a pin emoji to avoid duplication
+    const hasPin = location.includes('📍');
+    let formattedLocation = location;
+    
+    if (formattedLocation.length > 25) {
+      formattedLocation = formattedLocation.substring(0, 25) + '...';
     }
-    return location;
+    
+    // If it already has a pin emoji, don't add another one
+    return hasPin ? formattedLocation : formattedLocation;
   };
 
   const getDisplayTitle = () => {
@@ -175,7 +182,7 @@ const AlertCard = ({ alert, onPress, style }) => {
         </Text>
         
         <Text style={styles.location} numberOfLines={1}>
-          📍 {formatLocation(alert.location)}
+          {alert.location?.includes('📍') ? formatLocation(alert.location) : `📍 ${formatLocation(alert.location)}`}
         </Text>
         
         <View style={styles.footer}>

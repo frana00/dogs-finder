@@ -15,6 +15,7 @@ import Input from '../common/Input';
 import Button from '../common/Button';
 import ErrorMessage from '../common/ErrorMessage';
 import { PhotoPicker } from '../photos';
+import { LocationPicker } from '../location';
 
 // Note: Temporarily removed react-native-date-picker due to NativeEventEmitter issues
 // Will use platform-specific date picker implementations
@@ -37,6 +38,9 @@ const AlertForm = ({
     size: 'MEDIUM',
     description: '',
     location: '',
+    latitude: null,
+    longitude: null,
+    locationSource: 'MANUAL',
     postalCode: '',
     countryCode: 'ES',
     contactPhone: '',
@@ -142,6 +146,9 @@ const AlertForm = ({
         size: 'MEDIUM',
         description: '',
         location: '',
+        latitude: null,
+        longitude: null,
+        locationSource: 'MANUAL',
         postalCode: '',
         countryCode: 'ES',
         contactPhone: '',
@@ -254,6 +261,22 @@ const AlertForm = ({
     }
   };
 
+  // Handle location selection from LocationPicker
+  const handleLocationSelect = (locationData) => {
+    setFormData(prev => ({
+      ...prev,
+      location: locationData.location,
+      latitude: locationData.latitude,
+      longitude: locationData.longitude,
+      locationSource: locationData.source
+    }));
+    
+    // Clear location error if exists
+    if (errors.location) {
+      setErrors(prev => ({ ...prev, location: null }));
+    }
+  };
+
   const validateForm = () => {
     const newErrors = {};
 
@@ -357,6 +380,14 @@ const AlertForm = ({
         date: formData.date.toISOString(),
         status: 'ACTIVE', // Default status
         
+        // Location data - NEW GEOLOCATION FEATURE
+        location: formData.location, // Human-readable location string
+        ...(formData.latitude && formData.longitude && {
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+          locationSource: formData.locationSource
+        }),
+        
         // Campos opcionales del backend
         chipNumber: formData.chipNumber || undefined,
         
@@ -378,6 +409,14 @@ const AlertForm = ({
         titleInFormData: formData.title,
         titleInSubmitData: submitData.title,
         typeInSubmitData: submitData.type,
+        // NEW: Geolocation debug info
+        locationInfo: {
+          location: submitData.location,
+          hasCoordinates: !!(submitData.latitude && submitData.longitude),
+          latitude: submitData.latitude,
+          longitude: submitData.longitude,
+          locationSource: submitData.locationSource
+        },
         fullSubmitDataKeys: Object.keys(submitData),
         fullSubmitData: submitData
       });
@@ -567,12 +606,13 @@ const AlertForm = ({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>Ubicación y Fecha</Text>
         
-        <Input
-          label="Ubicación *"
-          value={formData.location}
-          onChangeText={(value) => updateField('location', value)}
-          placeholder="Ej: Parque Central, Barrio Norte"
+        <LocationPicker
+          onLocationSelect={handleLocationSelect}
+          initialLocation={formData.location}
+          initialLatitude={formData.latitude}
+          initialLongitude={formData.longitude}
           error={errors.location}
+          disabled={loading}
         />
 
         <View style={styles.row}>
@@ -681,7 +721,7 @@ const AlertForm = ({
 
       {/* Submit Button */}
       <View style={styles.submitContainer}>
-        {/* DEBUG INFO - REMOVER DESPUÉS */}
+        {/* DEBUG INFO - GEOLOCATION ADDED */}
         <View style={{ backgroundColor: '#f0f0f0', padding: 10, marginBottom: 10, borderRadius: 5 }}>
           <Text style={{ fontSize: 12, color: '#666' }}>DEBUG:</Text>
           <Text style={{ fontSize: 12, color: '#666' }}>MODE: {initialData ? 'EDIT' : 'CREATE'}</Text>
@@ -694,6 +734,12 @@ const AlertForm = ({
             formData.title && formData.breed && formData.color && formData.description && 
             formData.location && formData.contactPhone && formData.countryCode ? 'TRUE' : 'FALSE'
           }</Text>
+          {/* NEW: Geolocation Debug */}
+          <Text style={{ fontSize: 12, color: '#008000', fontWeight: 'bold' }}>📍 GEOLOCATION:</Text>
+          <Text style={{ fontSize: 12, color: '#008000' }}>Location: {formData.location || 'Not set'}</Text>
+          <Text style={{ fontSize: 12, color: '#008000' }}>GPS: {formData.latitude && formData.longitude ? 
+            `${formData.latitude.toFixed(4)}, ${formData.longitude.toFixed(4)}` : 'Not available'}</Text>
+          <Text style={{ fontSize: 12, color: '#008000' }}>Source: {formData.locationSource}</Text>
         </View>
         
         <Button

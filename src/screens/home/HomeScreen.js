@@ -253,8 +253,8 @@ const HomeScreen = ({ navigation }) => {
           contentContainerStyle={styles.filterContainer}
         >
           {renderFilterButton(null, 'Todos', '🔍')}
-          {renderFilterButton(ALERT_TYPES.LOST, 'Perdidos', '😢')}
-          {renderFilterButton(ALERT_TYPES.SEEN, 'Encontrados', '😊')}
+          {renderFilterButton(ALERT_TYPES.LOST, 'Perdidos')}
+          {renderFilterButton(ALERT_TYPES.SEEN, 'Encontrados')}
         </ScrollView>
         
         {filters.type && (

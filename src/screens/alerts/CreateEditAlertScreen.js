@@ -19,7 +19,8 @@ const CreateEditAlertScreen = ({ route, navigation }) => {
   const { alertId, alertData } = route.params || {};
   const { createNewAlert, updateExistingAlert, loading, error } = useAlert();
   const { user, isAuthenticated } = useAuth();
-  const [formData, setFormData] = useState(null);
+  // Initialize formData directly with alertData if available to avoid timing issues
+  const [formData, setFormData] = useState(alertData || null);
   const [localLoading, setLocalLoading] = useState(false);
 
   const isEditing = Boolean(alertId);
@@ -30,7 +31,8 @@ const CreateEditAlertScreen = ({ route, navigation }) => {
   // Debug component removed to save screen space
 
   useEffect(() => {
-    if (alertData) {
+    // Only update if alertData exists and is different from current formData
+    if (alertData && alertData !== formData) {
       setFormData(alertData);
       console.log('🔄 SETTING FORM DATA IN CREATE/EDIT SCREEN:', {
         alertData,
@@ -209,12 +211,19 @@ const CreateEditAlertScreen = ({ route, navigation }) => {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
         enabled
       >
-        <AlertForm
-          initialData={formData}
-          onSubmit={handleFormSubmit}
-          loading={formLoading}
-          style={styles.form}
-        />
+        {/* Show loading while waiting for initial data in edit mode */}
+        {isEditing && !formData ? (
+          <View style={styles.loadingContainer}>
+            <Text style={styles.loadingText}>Cargando datos de la alerta...</Text>
+          </View>
+        ) : (
+          <AlertForm
+            initialData={formData}
+            onSubmit={handleFormSubmit}
+            loading={formLoading}
+            style={styles.form}
+          />
+        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
@@ -254,6 +263,17 @@ const styles = StyleSheet.create({
   form: {
     flex: 1,
     minHeight: '100%', // Ensure form takes full height
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    color: COLORS.textSecondary,
+    textAlign: 'center',
   },
 });
 

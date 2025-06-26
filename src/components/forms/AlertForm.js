@@ -53,6 +53,16 @@ const AlertForm = ({
     chipNumber: '',
   });
 
+  // Separate useEffect to handle user email changes only for new alerts
+  useEffect(() => {
+    if (!initialData && user?.email) {
+      setFormData(prev => ({
+        ...prev,
+        contactEmail: prev.contactEmail || user.email
+      }));
+    }
+  }, [user?.email, initialData]);
+
   const [errors, setErrors] = useState({});
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [selectedPhotos, setSelectedPhotos] = useState([]);
@@ -68,6 +78,12 @@ const AlertForm = ({
   // Load initial data if editing
   useEffect(() => {
     if (initialData) {
+      console.log('🔄 LOADING INITIAL DATA FOR EDIT:', {
+        initialDataExists: !!initialData,
+        rawInitialData: initialData,
+        titleInInitialData: initialData.title
+      });
+
       // Parse description to extract additional fields that might be embedded
       const parseDescriptionFields = (description) => {
         const fields = {};
@@ -181,15 +197,14 @@ const AlertForm = ({
 
       setFormData(newFormDataState);
       
-      // console.log('🔄 LOADING INITIAL DATA FOR EDIT:', {
-      //   initialDataExists: !!initialData,
-      //   rawInitialData: initialData,
-      //   parsedFields,
-      //   cleanDescription,
-      //   finalFormDataApplied: newFormDataState
-      // });
+      console.log('✅ INITIAL DATA LOADED FOR EDIT:', {
+        finalFormDataApplied: newFormDataState,
+        title: newFormDataState.title,
+        breed: newFormDataState.breed,
+        color: newFormDataState.color
+      });
     }
-  }, [initialData, user?.email]);
+  }, [initialData]); // Removed user?.email dependency to avoid unnecessary re-renders
 
   // Continuously validate form to update button state
   useEffect(() => {

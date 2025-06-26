@@ -38,7 +38,7 @@ const ProfileScreen = ({ navigation }) => {
   // Reload data when screen comes into focus
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
-      console.log('🔄 Profile screen focused, reloading data...');
+      // console.log('🔄 Profile screen focused, reloading data...');
       loadUserData();
     });
 
@@ -53,9 +53,9 @@ const ProfileScreen = ({ navigation }) => {
       // Check if migration is needed and run it
       const needsMigration = await checkIfMigrationNeeded();
       if (needsMigration) {
-        console.log('🔄 Running email migration...');
+        // console.log('🔄 Running email migration...');
         const migrationResult = await migrateUserEmailData();
-        console.log('🔄 Migration result:', migrationResult);
+        // console.log('🔄 Migration result:', migrationResult);
         
         if (migrationResult.hadPlaceholder) {
           // Show alert to user that they need to update their email
@@ -73,9 +73,9 @@ const ProfileScreen = ({ navigation }) => {
       const storedUserData = await getUserData();
       const credentials = await getCredentials();
       
-      console.log('📱 ProfileScreen - Loading user data:');
-      console.log('  - Stored data:', storedUserData);
-      console.log('  - Credentials:', credentials ? { username: credentials.username } : 'None');
+      // console.log('📱 ProfileScreen - Loading user data:');
+      // console.log('  - Stored data:', storedUserData);
+      // console.log('  - Credentials:', credentials ? { username: credentials.username } : 'None');
       console.log('  - Context user:', user);
       
       if (!credentials) {
@@ -428,15 +428,15 @@ const ProfileScreen = ({ navigation }) => {
               />
             )}
 
-            {/* Development button - Only in development mode */}
-            {__DEV__ && (
+            {/* Development button - Disabled for presentation */}
+            {/* {__DEV__ && (
               <Button
                 title="🛠️ Desarrollo"
                 onPress={() => navigation.navigate('Dev')}
                 variant="text"
                 style={styles.devButton}
               />
-            )}
+            )} */}
 
             <Button
               title="Cerrar Sesión"
@@ -549,9 +549,9 @@ const styles = StyleSheet.create({
   editButton: {
     marginBottom: 8,
   },
-  devButton: {
-    marginBottom: 8,
-  },
+  // devButton: {
+  //   marginBottom: 8,
+  // },
   logoutButton: {
     borderColor: COLORS.error,
   },

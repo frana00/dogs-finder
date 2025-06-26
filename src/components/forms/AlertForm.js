@@ -181,13 +181,13 @@ const AlertForm = ({
 
       setFormData(newFormDataState);
       
-      console.log('🔄 LOADING INITIAL DATA FOR EDIT:', {
-        initialDataExists: !!initialData,
-        rawInitialData: initialData,
-        parsedFields,
-        cleanDescription,
-        finalFormDataApplied: newFormDataState
-      });
+      // console.log('🔄 LOADING INITIAL DATA FOR EDIT:', {
+      //   initialDataExists: !!initialData,
+      //   rawInitialData: initialData,
+      //   parsedFields,
+      //   cleanDescription,
+      //   finalFormDataApplied: newFormDataState
+      // });
     }
   }, [initialData, user?.email]);
 
@@ -242,22 +242,22 @@ const AlertForm = ({
       const isValid = Object.keys(newErrors).length === 0;
       setIsFormValid(isValid);
       
-      // DEBUG: Log validation state
-      console.log('🔍 FORM VALIDATION:', {
-        isValid,
-        errorsCount: Object.keys(newErrors).length,
-        errors: newErrors,
-        formData: {
-          title: formData.title,
-          breed: formData.breed,
-          color: formData.color,
-          description: formData.description,
-          location: formData.location,
-          contactPhone: formData.contactPhone,
-          countryCode: formData.countryCode,
-          type: formData.type
-        }
-      });
+      // DEBUG: Log validation state - REMOVED FOR CLEAN PRESENTATION
+      // console.log('🔍 FORM VALIDATION:', {
+      //   isValid,
+      //   errorsCount: Object.keys(newErrors).length,
+      //   errors: newErrors,
+      //   formData: {
+      //     title: formData.title,
+      //     breed: formData.breed,
+      //     color: formData.color,
+      //     description: formData.description,
+      //     location: formData.location,
+      //     contactPhone: formData.contactPhone,
+      //     countryCode: formData.countryCode,
+      //     type: formData.type
+      //   }
+      // });
      }
     
     checkFormValidity();
@@ -292,7 +292,7 @@ const AlertForm = ({
 
   // Handle location selection from LocationAutocomplete
   const handleLocationSelect = (locationData) => {
-    console.log('🏠 AlertForm: Received locationData in handleLocationSelect:', JSON.stringify(locationData));
+    // console.log('🏠 AlertForm: Received locationData in handleLocationSelect:', JSON.stringify(locationData));
     
     const newFormData = {
       ...formData,
@@ -301,11 +301,11 @@ const AlertForm = ({
       longitude: locationData.longitude,
       locationSource: locationData.source,
     };
-    console.log('🏠 AlertForm: Attempting to set new formData:', JSON.stringify(newFormData));
+    // console.log('🏠 AlertForm: Attempting to set new formData:', JSON.stringify(newFormData));
     setFormData(newFormData);
     
     if (errors.location) {
-      console.log('🏠 AlertForm: Clearing location error.');
+      // console.log('🏠 AlertForm: Clearing location error.');
       setErrors(prev => ({ ...prev, location: null }));
     }
   };
@@ -313,12 +313,12 @@ const AlertForm = ({
   // Add a new useEffect to monitor changes to location fields specifically
   useEffect(() => {
     if (formData.location !== undefined || formData.latitude !== undefined || formData.longitude !== undefined) { // Log even if they become undefined/null
-      console.log(
-        '🏠 AlertForm: formData changed. Location:', formData.location, 
-        'Lat:', formData.latitude, 
-        'Lng:', formData.longitude,
-        'Source:', formData.locationSource
-      );
+      // console.log(
+      //   '🏠 AlertForm: formData changed. Location:', formData.location, 
+      //   'Lat:', formData.latitude, 
+      //   'Lng:', formData.longitude,
+      //   'Source:', formData.locationSource
+      // );
     }
   }, [formData.location, formData.latitude, formData.longitude, formData.locationSource]);
 
@@ -553,21 +553,22 @@ const AlertForm = ({
         }),
       };
 
-      console.log('📤 SUBMIT DATA DEBUG:', {
-        titleInFormData: formData.title,
-        titleInSubmitData: submitData.title,
-        typeInSubmitData: submitData.type,
-        // NEW: Geolocation debug info
-        locationInfo: {
-          location: submitData.location,
-          hasCoordinates: !!(submitData.latitude && submitData.longitude),
-          latitude: submitData.latitude,
-          longitude: submitData.longitude,
-          locationSource: submitData.locationSource
-        },
-        fullSubmitDataKeys: Object.keys(submitData),
-        fullSubmitData: submitData
-      });
+      // SUBMIT DATA DEBUG - REMOVED FOR CLEAN PRESENTATION
+      // console.log('📤 SUBMIT DATA DEBUG:', {
+      //   titleInFormData: formData.title,
+      //   titleInSubmitData: submitData.title,
+      //   typeInSubmitData: submitData.type,
+      //   // NEW: Geolocation debug info
+      //   locationInfo: {
+      //     location: submitData.location,
+      //     hasCoordinates: !!(submitData.latitude && submitData.longitude),
+      //     latitude: submitData.latitude,
+      //     longitude: submitData.longitude,
+      //     locationSource: submitData.locationSource
+      //   },
+      //   fullSubmitDataKeys: Object.keys(submitData),
+      //   fullSubmitData: submitData
+      // });
 
       onSubmit?.(submitData);
     }
@@ -986,8 +987,8 @@ const AlertForm = ({
 
       {/* Submit Button */}
       <View style={styles.submitContainer}>
-        {/* DEBUG INFO - GEOLOCATION ADDED */}
-        <View style={{ backgroundColor: '#f0f0f0', padding: 10, marginBottom: 10, borderRadius: 5 }}>
+        {/* DEBUG INFO - REMOVED FOR CLEAN PRESENTATION */}
+        {/* <View style={{ backgroundColor: '#f0f0f0', padding: 10, marginBottom: 10, borderRadius: 5 }}>
           <Text style={{ fontSize: 12, color: '#666' }}>DEBUG:</Text>
           <Text style={{ fontSize: 12, color: '#666' }}>MODE: {initialData ? 'EDIT' : 'CREATE'}</Text>
           <Text style={{ fontSize: 12, color: '#666' }}>isFormValid: {isFormValid ? 'TRUE' : 'FALSE'}</Text>
@@ -999,14 +1000,13 @@ const AlertForm = ({
             formData.title && formData.breed && formData.color && formData.description && 
             formData.location && formData.contactPhone && formData.countryCode ? 'TRUE' : 'FALSE'
           }</Text>
-          {/* NEW: Geolocation Debug */}
           <Text style={{ fontSize: 12, color: '#008000', fontWeight: 'bold' }}>📍 GEOLOCATION:</Text>
           <Text style={{ fontSize: 12, color: '#008000' }}>Location: {formData.location || 'Not set'}</Text>
           <Text style={{ fontSize: 12, color: '#008000' }}>GPS Address: {convertedAddress || 'Converting...'}</Text>
           <Text style={{ fontSize: 12, color: '#008000' }}>Raw Coords: {formData.latitude && formData.longitude ? 
             `${formData.latitude.toFixed(4)}, ${formData.longitude.toFixed(4)}` : 'Not available'}</Text>
           <Text style={{ fontSize: 12, color: '#008000' }}>Source: {formData.locationSource}</Text>
-        </View>
+        </View> */}
         
         <Button
           title={initialData ? 'Actualizar Alerta' : 'Crear Alerta'}

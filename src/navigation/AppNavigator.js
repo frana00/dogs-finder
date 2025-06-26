@@ -110,8 +110,8 @@ const MainStack = () => {
         }}
       />
       
-      {/* Development Screen - Only in development */}
-      {__DEV__ && (
+      {/* Development Screen - Disabled for presentation */}
+      {/* {__DEV__ && (
         <Stack.Screen 
           name="Dev" 
           component={DevScreen}
@@ -126,7 +126,7 @@ const MainStack = () => {
             headerTintColor: COLORS.primary,
           }}
         />
-      )}
+      )} */}
     </Stack.Navigator>
   );
 };

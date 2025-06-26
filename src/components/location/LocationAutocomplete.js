@@ -29,7 +29,8 @@ const LocationAutocomplete = ({
   const [userLocation, setUserLocation] = useState(null);
   const [error, setError] = useState(null);
   const [isSelecting, setIsSelecting] = useState(false); // Prevenir múltiples selecciones
-  const [justSelected, setJustSelected] = useState(false);
+  const [lastSelectedLocation, setLastSelectedLocation] = useState(null); // Última ubicación seleccionada
+  const [isLocationLocked, setIsLocationLocked] = useState(false); // Flag para bloquear búsquedas tras selección
   
   const searchTimeoutRef = useRef(null);
   const inputRef = useRef(null);
@@ -69,8 +70,15 @@ const LocationAutocomplete = ({
       clearTimeout(searchTimeoutRef.current);
     }
 
-    // No buscar si acabamos de seleccionar algo (solo por 200ms)
-    if (justSelected) {
+    // No buscar si la ubicación está bloqueada tras una selección
+    if (isLocationLocked) {
+      console.log('🔒 Location locked, skipping search');
+      return;
+    }
+
+    // No buscar si el query actual coincide con la última ubicación seleccionada
+    if (lastSelectedLocation && query === lastSelectedLocation) {
+      console.log('🔒 Query matches last selected location, skipping search');
       return;
     }
 
@@ -88,7 +96,7 @@ const LocationAutocomplete = ({
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [query, userLocation, justSelected]);
+  }, [query, userLocation, isLocationLocked, lastSelectedLocation]);
 
   const searchForPlaces = async (searchQuery) => {
     if (!searchQuery || searchQuery.length < 3) return;
@@ -140,10 +148,15 @@ const LocationAutocomplete = ({
     }
     
     setIsSelecting(true);
-    setJustSelected(true);
     setDropdownVisible(false); // Cerrar inmediatamente
     setSuggestions([]); // Limpiar sugerencias
     Keyboard.dismiss();
+
+    // Limpiar cualquier timeout de búsqueda pendiente
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+      searchTimeoutRef.current = null;
+    }
 
     // Limpiar timeout de blur si existe
     if (blurTimeoutRef.current) {
@@ -166,6 +179,11 @@ const LocationAutocomplete = ({
         };
 
         setQuery(locationData.location);
+        
+        // Configurar Enfoque 3: bloquear ubicación tras selección
+        setLastSelectedLocation(locationData.location);
+        setIsLocationLocked(true);
+        
         console.log('🌍 LocationAutocomplete: Calling onLocationSelect with:', JSON.stringify(locationData));
         onLocationSelect?.(locationData);
 
@@ -179,6 +197,11 @@ const LocationAutocomplete = ({
           placeData: place,
         };
         setQuery(fallbackData.location);
+        
+        // Configurar Enfoque 3: bloquear ubicación tras selección
+        setLastSelectedLocation(fallbackData.location);
+        setIsLocationLocked(true);
+        
         console.log('🌍 LocationAutocomplete: Calling onLocationSelect with fallbackData (no placeId):', JSON.stringify(fallbackData));
         onLocationSelect?.(fallbackData);
       }
@@ -192,13 +215,13 @@ const LocationAutocomplete = ({
         source: LOCATION_SOURCE.ERROR,
       };
       setQuery(query);
+      
+      // No bloquear en caso de error para permitir nuevos intentos
       console.log('🌍 LocationAutocomplete: Calling onLocationSelect with error fallback data:', JSON.stringify(errorFallbackData));
       onLocationSelect?.(errorFallbackData);
     } finally {
       setLoading(false);
       setIsSelecting(false);
-      // Resetear justSelected después de más tiempo para evitar conflictos
-      setTimeout(() => setJustSelected(false), 500);
     }
   };
 
@@ -212,10 +235,15 @@ const LocationAutocomplete = ({
       if (location) {
         // Aquí podrías convertir a dirección si quieres
         const coords = `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`;
-        setQuery(`📍 ${coords}`);
+        const locationText = `📍 ${coords}`;
+        setQuery(locationText);
+
+        // Configurar Enfoque 3: bloquear ubicación tras selección GPS
+        setLastSelectedLocation(locationText);
+        setIsLocationLocked(true);
 
         onLocationSelect?.({
-          location: `📍 ${coords}`,
+          location: locationText,
           latitude: location.latitude,
           longitude: location.longitude,
           source: 'GPS',
@@ -230,13 +258,21 @@ const LocationAutocomplete = ({
   };
 
   const handleTextChange = (text) => {
-    setJustSelected(false); // Permitir nuevas búsquedas cuando el usuario escribe
+    // Si el usuario edita el texto después de una selección, desbloquear
+    if (isLocationLocked && text !== lastSelectedLocation) {
+      console.log('🔓 User editing after selection, unlocking location');
+      setIsLocationLocked(false);
+      setLastSelectedLocation(null);
+    }
+    
     setQuery(text);
     
     // Si el usuario borra todo o escribe algo diferente, notificar al padre
     if (text.length === 0) {
       setDropdownVisible(false);
       setSuggestions([]);
+      setIsLocationLocked(false);
+      setLastSelectedLocation(null);
       onLocationSelect?.({
         location: '',
         latitude: null,
@@ -293,8 +329,8 @@ const LocationAutocomplete = ({
             placeholderTextColor={COLORS.gray}
             editable={!disabled}
             onFocus={() => {
-              // Solo mostrar sugerencias si tenemos resultados y no acabamos de seleccionar
-              if (suggestions.length > 0 && !justSelected && !isSelecting) {
+              // Solo mostrar sugerencias si tenemos resultados y no estamos bloqueados
+              if (suggestions.length > 0 && !isLocationLocked && !isSelecting) {
                 setDropdownVisible(true);
               }
             }}

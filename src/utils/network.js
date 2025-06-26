@@ -58,12 +58,10 @@ export const getApiBaseUrl = () => {
   // Priorizar variables de entorno
   const envApiUrl = process.env.EXPO_PUBLIC_API_BASE_URL;
   if (envApiUrl) {
-    console.log('🌐 Using API URL from environment:', envApiUrl);
     return envApiUrl;
   }
   
   // Fallback al sistema anterior
-  console.log('🌐 Using API URL from network config (fallback)');
   return isDevelopment() ? getDevelopmentApiUrl() : getProductionApiUrl();
 };
 

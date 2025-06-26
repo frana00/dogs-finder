@@ -102,30 +102,21 @@ const PhotoPicker = ({
   };
 
   const uploadAllPhotos = async () => {
-    console.log('🔄 PhotoPicker: uploadAllPhotos called');
-    console.log('Selected images count:', selectedImages.length);
-    console.log('Alert ID:', alertId);
-    console.log('Alert ID type:', typeof alertId);
-    
     if (selectedImages.length === 0) {
-      console.log('❌ No photos to upload');
       Alert.alert('Sin fotos', 'Selecciona al menos una foto para subir');
       return;
     }
 
     if (!alertId) {
-      console.log('❌ No alert ID provided');
       Alert.alert('Error', 'No se puede subir fotos sin un ID de alerta válido');
       return;
     }
 
     try {
-      console.log('🚀 Starting upload process...');
       setUploading(true);
       
       // This function is only used when uploadImmediately is true
       // For new alerts, photos should be included in the creation process
-      console.log('📤 Uploading photos for existing alert:', alertId);
       
       const { uploadMultiplePhotos } = await import('../../services/photos');
       const photosWithDescriptions = selectedImages.map((image, index) => ({
@@ -134,25 +125,17 @@ const PhotoPicker = ({
         filename: image.filename,
       }));
       
-      console.log('📋 Photos prepared for upload:', photosWithDescriptions);
-      
-      console.log('⏳ Calling uploadMultiplePhotos...');
       const uploadResults = await uploadMultiplePhotos(photosWithDescriptions, alertId);
-      console.log('📊 Upload results received:', uploadResults);
       
       // Clear selected images
-      console.log('🧹 Clearing selected images...');
       setSelectedImages([]);
       setDescriptions([]);
       
       // Notify parent component
-      console.log('📞 Notifying parent component via onPhotoUploaded...');
       onPhotoUploaded?.(uploadResults);
       
       const successCount = uploadResults.filter(r => r.uploaded).length;
       const failureCount = uploadResults.length - successCount;
-      
-      console.log('📊 Final results:', { successCount, failureCount });
       
       if (failureCount > 0) {
         Alert.alert('Parcialmente exitoso', `${successCount} de ${uploadResults.length} foto(s) se subieron correctamente.`);
@@ -160,13 +143,9 @@ const PhotoPicker = ({
         Alert.alert('Éxito', `${successCount} foto(s) subida(s) correctamente`);
       }
     } catch (error) {
-      console.error('❌ PhotoPicker upload error:', {
-        message: error.message,
-        stack: error.stack
-      });
+      console.error('❌ PhotoPicker upload error:', error.message);
       Alert.alert('Error', error.message || 'Error al subir fotos');
     } finally {
-      console.log('🏁 Upload process finished, setting uploading to false');
       setUploading(false);
     }
   };

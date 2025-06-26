@@ -53,15 +53,9 @@ const AlertDetailScreen = ({ route, navigation }) => {
   };
 
   const loadPhotos = async () => {
-    console.log('🔄 AlertDetailScreen: loadPhotos called for alert:', alertId);
     try {
       setLoadingPhotos(true);
-      console.log('📥 Calling getAlertPhotos...');
       const alertPhotos = await getAlertPhotos(alertId);
-      console.log('📸 Photos loaded:', {
-        count: alertPhotos ? alertPhotos.length : 0,
-        photos: alertPhotos
-      });
       setPhotos(alertPhotos);
     } catch (error) {
       console.error('❌ Error loading photos:', error);
@@ -71,14 +65,9 @@ const AlertDetailScreen = ({ route, navigation }) => {
   };
 
   const loadPosts = async () => {
-    console.log('🔄 AlertDetailScreen: loadPosts called for alert:', alertId);
     try {
       setLoadingPosts(true);
       const alertPosts = await getPostsForAlert(alertId);
-      console.log('📝 Posts loaded:', {
-        count: alertPosts ? alertPosts.length : 0,
-        posts: alertPosts
-      });
       setPosts(alertPosts || []);
     } catch (error) {
       console.error('❌ Error loading posts:', error);

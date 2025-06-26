@@ -26,9 +26,6 @@ const createBasicAuthHeader = (username, password) => {
 // Request interceptor to add authentication
 apiClient.interceptors.request.use(
   async (config) => {
-    // Log the request for debugging
-    console.log(`🌐 API Request: ${config.method?.toUpperCase()} ${config.baseURL}${config.url}`);
-    
     // For requests that don't need auth, skip adding credentials
     if (config.skipAuth) {
       return config;
@@ -56,17 +53,9 @@ apiClient.interceptors.request.use(
 // Response interceptor to handle common errors
 apiClient.interceptors.response.use(
   (response) => {
-    console.log(`✅ API Response: ${response.status} ${response.config.method?.toUpperCase()} ${response.config.url}`);
     return response;
   },
   (error) => {
-    console.log(`❌ API Error:`, error.message);
-    if (error.response) {
-      console.log(`   Status: ${error.response.status}`);
-      console.log(`   Data:`, error.response.data);
-    } else {
-      console.log(`   Network error or timeout. Base URL: ${API_CONFIG.BASE_URL}`);
-    }
     
     let errorMessage = ERROR_MESSAGES.SERVER_ERROR;
 

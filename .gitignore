@@ -49,6 +49,9 @@ src/utils/network.config.js
 *.log
 logs/
 
+# Visual Documentation (local development only)
+docs-visual/
+
 # Documentation and testing files
 docs/
 tests/

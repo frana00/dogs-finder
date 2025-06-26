@@ -7,9 +7,7 @@ import apiClient from './api';
  */
 export const getPostsForAlert = async (alertId) => {
   try {
-    console.log('📝 Getting posts for alert:', alertId);
     const response = await apiClient.get(`/alerts/${alertId}/posts`);
-    console.log('📝 Posts loaded:', response.data);
     return response.data || [];
   } catch (error) {
     console.error('❌ Error loading posts:', error);
@@ -27,8 +25,6 @@ export const getPostsForAlert = async (alertId) => {
  */
 export const createPost = async (alertId, postData) => {
   try {
-    console.log('📝 Creating post for alert:', alertId, postData);
-    
     // Validate required fields
     if (!postData.username) {
       throw new Error('Username es requerido');
@@ -42,7 +38,6 @@ export const createPost = async (alertId, postData) => {
       content: postData.content.trim(),
     });
 
-    console.log('📝 Post created:', response.data);
     return response.data;
   } catch (error) {
     console.error('❌ Error creating post:', error);
@@ -59,8 +54,6 @@ export const createPost = async (alertId, postData) => {
  */
 export const updatePost = async (postId, postData) => {
   try {
-    console.log('📝 Updating post:', postId, postData);
-    
     // Validate required fields
     if (!postData.content || !postData.content.trim()) {
       throw new Error('El contenido del comentario es requerido');
@@ -70,7 +63,6 @@ export const updatePost = async (postId, postData) => {
       content: postData.content.trim(),
     });
 
-    console.log('📝 Post updated:', response.data);
     return response.data;
   } catch (error) {
     console.error('❌ Error updating post:', error);
@@ -85,11 +77,7 @@ export const updatePost = async (postId, postData) => {
  */
 export const deletePost = async (postId) => {
   try {
-    console.log('📝 Deleting post:', postId);
-    
     await apiClient.delete(`/posts/${postId}`);
-    
-    console.log('📝 Post deleted successfully');
   } catch (error) {
     console.error('❌ Error deleting post:', error);
     throw new Error(error.response?.data?.message || 'Error al eliminar comentario');

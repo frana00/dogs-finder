@@ -96,8 +96,8 @@ const LoginScreen = ({ navigation }) => {
       >
         <View style={styles.header}>
           <Text style={styles.logo}>🐾</Text>
-          <Text style={styles.title}>PetSignal</Text>
-          <Text style={styles.subtitle}>Encuentra y reporta mascotas perdidas</Text>
+          <Text style={styles.title}>Dogs Finder</Text>
+          <Text style={styles.subtitle}>Encuentra y reporta perros perdidos</Text>
         </View>
 
         <View style={styles.form}>
@@ -143,8 +143,8 @@ const LoginScreen = ({ navigation }) => {
             </TouchableOpacity>
           </View>
 
-          {/* Debug buttons - only in development */}
-          {__DEV__ && (
+          {/* Debug buttons removed for clean presentation */}
+          {false && __DEV__ && (
             <View style={styles.debugContainer}>
               <Text style={styles.debugTitle}>🔧 Debug Tools</Text>
               <View style={styles.debugButtons}>

@@ -14,8 +14,6 @@ import apiClient from './api';
  */
 export const getAlertsNearby = async ({ lat, lng, radius = 10, type = null }) => {
   try {
-    console.log('🔍 Searching alerts nearby:', { lat, lng, radius, type });
-    
     const params = {
       lat,
       lng,
@@ -28,11 +26,6 @@ export const getAlertsNearby = async ({ lat, lng, radius = 10, type = null }) =>
     }
     
     const response = await apiClient.get('/alerts/nearby', { params });
-    
-    console.log('📍 Found nearby alerts:', {
-      count: response.data ? response.data.length : 0,
-      alerts: response.data
-    });
     
     return response.data || [];
   } catch (error) {

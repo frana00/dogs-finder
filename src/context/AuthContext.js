@@ -78,25 +78,17 @@ export const AuthProvider = ({ children }) => {
     try {
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       
-      console.log('🔍 AuthContext: Checking authentication status...');
       const isValid = await authService.validateSession();
-      console.log('🔍 AuthContext: Session validation result:', isValid);
       
       if (isValid) {
         const user = await authService.getCurrentUser();
-        console.log('🔍 AuthContext: Current user data:', user);
-        console.log('🔍 AuthContext: User username:', user?.username);
         
         if (user && user.username) {
           dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: user });
-          console.log('✅ AuthContext: Authentication successful with user data');
         } else {
-          console.warn('⚠️ AuthContext: Session valid but user data incomplete');
-          console.warn('⚠️ AuthContext: User object:', user);
           dispatch({ type: AUTH_ACTIONS.LOGOUT });
         }
       } else {
-        console.log('❌ AuthContext: Session validation failed, logging out');
         dispatch({ type: AUTH_ACTIONS.LOGOUT });
       }
     } catch (error) {
@@ -107,29 +99,19 @@ export const AuthProvider = ({ children }) => {
 
   const login = async (username, password) => {
     try {
-      console.log(`🔐 AuthContext: Attempting login for user: ${username}`);
       dispatch({ type: AUTH_ACTIONS.SET_LOADING, payload: true });
       dispatch({ type: AUTH_ACTIONS.CLEAR_ERROR });
       
       const user = await authService.login(username, password);
-      console.log(`✅ AuthContext: Login successful for user: ${username}`);
-      console.log(`🔍 AuthContext: User data received:`, user);
-      console.log(`🔍 AuthContext: User username:`, user?.username);
       
       if (user && user.username) {
         dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: user });
-        console.log(`✅ AuthContext: User data stored in context`);
         return { success: true };
       } else {
-        console.error(`❌ AuthContext: Login response missing username`);
         dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: 'Error de autenticación: datos de usuario incompletos' });
         return { success: false, error: 'Datos de usuario incompletos' };
       }
-      dispatch({ type: AUTH_ACTIONS.LOGIN_SUCCESS, payload: user });
-      
-      return { success: true };
     } catch (error) {
-      console.log(`❌ Login failed for user: ${username}`, error.message);
       dispatch({ type: AUTH_ACTIONS.SET_ERROR, payload: error.message });
       return { success: false, error: error.message };
     }
@@ -178,8 +160,6 @@ export const AuthProvider = ({ children }) => {
         // Save both globally and for specific user
         await saveUserData(updatedUserData);
         await saveUserDataForUser(credentials.username, updatedUserData);
-        
-        console.log('📱 Updated user data saved to storage:', updatedUserData);
       }
     } catch (error) {
       console.error('Error updating user data:', error);

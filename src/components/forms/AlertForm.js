@@ -307,7 +307,7 @@ const AlertForm = ({
 
   // Handle location selection from LocationAutocomplete
   const handleLocationSelect = (locationData) => {
-    // console.log('🏠 AlertForm: Received locationData in handleLocationSelect:', JSON.stringify(locationData));
+    console.log('🏠 AlertForm: Received locationData in handleLocationSelect:', JSON.stringify(locationData));
     
     const newFormData = {
       ...formData,
@@ -316,11 +316,11 @@ const AlertForm = ({
       longitude: locationData.longitude,
       locationSource: locationData.source,
     };
-    // console.log('🏠 AlertForm: Attempting to set new formData:', JSON.stringify(newFormData));
+    console.log('🏠 AlertForm: Attempting to set new formData:', JSON.stringify(newFormData));
     setFormData(newFormData);
     
     if (errors.location) {
-      // console.log('🏠 AlertForm: Clearing location error.');
+      console.log('🏠 AlertForm: Clearing location error.');
       setErrors(prev => ({ ...prev, location: null }));
     }
   };
@@ -857,12 +857,14 @@ const AlertForm = ({
         
         {/* Manual Mode - Show autocomplete */}
         {locationMode === 'manual' && (
-          <LocationAutocomplete
-            onLocationSelect={handleLocationSelect}
-            initialValue={formData.location}
-            placeholder="Escribe la ubicación donde se perdió/encontró..."
-            disabled={loading}
-          />
+          <View style={styles.locationAutocompleteContainer}>
+            <LocationAutocomplete
+              onLocationSelect={handleLocationSelect}
+              initialValue={formData.location}
+              placeholder="Escribe la ubicación donde se perdió/encontró..."
+              disabled={loading}
+            />
+          </View>
         )}
         
         {/* Postal Mode - Show postal code inputs */}
@@ -1512,6 +1514,10 @@ const styles = StyleSheet.create({
   },
   postalModeContainer: {
     marginTop: 8,
+  },
+  locationAutocompleteContainer: {
+    zIndex: 1000,
+    position: 'relative',
   },
 });
 

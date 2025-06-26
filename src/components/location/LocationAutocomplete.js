@@ -25,13 +25,27 @@ const LocationAutocomplete = ({
   const [query, setQuery] = useState(initialValue);
   const [suggestions, setSuggestions] = useState([]);
   const [loading, setLoading] = useState(false);
-  const [showSuggestions, setShowSuggestions] = useState(false);
+  const [dropdownVisible, setDropdownVisible] = useState(false);
   const [userLocation, setUserLocation] = useState(null);
   const [error, setError] = useState(null);
-  const [justSelected, setJustSelected] = useState(false); // Evitar mostrar sugerencias después de selección
+  const [isSelecting, setIsSelecting] = useState(false); // Prevenir múltiples selecciones
+  const [justSelected, setJustSelected] = useState(false);
   
   const searchTimeoutRef = useRef(null);
   const inputRef = useRef(null);
+  const blurTimeoutRef = useRef(null);
+
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+      if (blurTimeoutRef.current) {
+        clearTimeout(blurTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Obtener ubicación del usuario al montar el componente
   useEffect(() => {
@@ -66,7 +80,7 @@ const LocationAutocomplete = ({
       }, 300); // 300ms debounce
     } else {
       setSuggestions([]);
-      setShowSuggestions(false);
+      setDropdownVisible(false);
     }
 
     return () => {
@@ -105,29 +119,43 @@ const LocationAutocomplete = ({
       }
 
       setSuggestions(results);
-      setShowSuggestions(results.length > 0);
+      setDropdownVisible(results.length > 0);
     } catch (error) {
       console.error('Error searching places:', error);
       setError('Error al buscar lugares');
       setSuggestions([]);
-      setShowSuggestions(false);
+      setDropdownVisible(false);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSelectPlace = async (place) => {
-    console.log('🟠 handleSelectPlace called with:', JSON.stringify(place)); // LOG
+    console.log('🟠 handleSelectPlace called with:', JSON.stringify(place));
+    
+    // Prevenir múltiples selecciones
+    if (isSelecting) {
+      console.log('🚫 Already selecting, ignoring duplicate call');
+      return;
+    }
+    
+    setIsSelecting(true);
     setJustSelected(true);
-    setShowSuggestions(false);
-    setSuggestions([]);
+    setDropdownVisible(false); // Cerrar inmediatamente
+    setSuggestions([]); // Limpiar sugerencias
     Keyboard.dismiss();
+
+    // Limpiar timeout de blur si existe
+    if (blurTimeoutRef.current) {
+      clearTimeout(blurTimeoutRef.current);
+      blurTimeoutRef.current = null;
+    }
 
     try {
       if (place.placeId) {
         setLoading(true);
         const details = await getPlaceDetails(place.placeId);
-        console.log('🟠 handleSelectPlace got details:', JSON.stringify(details)); // LOG
+        console.log('🟠 handleSelectPlace got details:', JSON.stringify(details)); 
         
         const locationData = {
           location: details.title,
@@ -168,21 +196,23 @@ const LocationAutocomplete = ({
       onLocationSelect?.(errorFallbackData);
     } finally {
       setLoading(false);
-      setTimeout(() => setJustSelected(false), 50);
+      setIsSelecting(false);
+      // Resetear justSelected después de más tiempo para evitar conflictos
+      setTimeout(() => setJustSelected(false), 500);
     }
   };
 
   const handleCurrentLocation = async () => {
-    if (disabled) return;
+    if (disabled || isSelecting) return;
 
     setLoading(true);
+    setDropdownVisible(false);
     try {
       const location = await getCurrentLocation();
       if (location) {
         // Aquí podrías convertir a dirección si quieres
         const coords = `${location.latitude.toFixed(4)}, ${location.longitude.toFixed(4)}`;
         setQuery(`📍 ${coords}`);
-        setShowSuggestions(false);
 
         onLocationSelect?.({
           location: `📍 ${coords}`,
@@ -205,7 +235,7 @@ const LocationAutocomplete = ({
     
     // Si el usuario borra todo o escribe algo diferente, notificar al padre
     if (text.length === 0) {
-      setShowSuggestions(false);
+      setDropdownVisible(false);
       setSuggestions([]);
       onLocationSelect?.({
         location: '',
@@ -224,9 +254,11 @@ const LocationAutocomplete = ({
         index === suggestions.length - 1 && styles.suggestionItemLast
       ]}
       onPress={() => {
-        console.log('🟡 SUGGESTION PRESSED:', JSON.stringify(item)); // LOG
+        if (isSelecting) return; // Prevenir múltiples toques
+        console.log('🟡 SUGGESTION PRESSED:', JSON.stringify(item));
         handleSelectPlace(item);
       }}
+      activeOpacity={0.7}
     >
       <View style={styles.suggestionContent}>
         <Text style={styles.suggestionTitle} numberOfLines={1}>
@@ -253,7 +285,7 @@ const LocationAutocomplete = ({
             style={[
               styles.textInput,
               disabled && styles.textInputDisabled,
-              showSuggestions && styles.textInputWithSuggestions,
+              dropdownVisible && styles.textInputWithSuggestions,
             ]}
             value={query}
             onChangeText={handleTextChange}
@@ -262,15 +294,17 @@ const LocationAutocomplete = ({
             editable={!disabled}
             onFocus={() => {
               // Solo mostrar sugerencias si tenemos resultados y no acabamos de seleccionar
-              if (suggestions.length > 0 && !justSelected) {
-                setShowSuggestions(true);
+              if (suggestions.length > 0 && !justSelected && !isSelecting) {
+                setDropdownVisible(true);
               }
             }}
             onBlur={() => {
-              // Dar tiempo para que se procese la selección si el usuario hizo tap en una sugerencia
-              setTimeout(() => {
-                setShowSuggestions(false);
-              }, 200);
+              // Solo cerrar si no estamos en proceso de selección
+              if (!isSelecting) {
+                blurTimeoutRef.current = setTimeout(() => {
+                  setDropdownVisible(false);
+                }, 150); // Tiempo reducido pero suficiente
+              }
             }}
           />
           
@@ -298,15 +332,18 @@ const LocationAutocomplete = ({
         </TouchableOpacity>
 
         {/* Lista de sugerencias */}
-        {showSuggestions && suggestions.length > 0 && (
-          <FlatList
-            data={suggestions}
-            keyExtractor={(item, index) => item.placeId || item.title || index.toString()}
-            renderItem={({ item, index }) => renderSuggestion(item, index)}
-            style={[styles.suggestionsContainer, { zIndex: 9999, position: 'absolute', top: '100%', left: 0, right: 78 }]}
-            pointerEvents="auto"
-            keyboardShouldPersistTaps="always"
-          />
+        {dropdownVisible && suggestions.length > 0 && !isSelecting && (
+          <>
+            {/* Overlay invisible para cerrar el dropdown */}
+            <TouchableOpacity
+              style={styles.overlay}
+              onPress={() => setDropdownVisible(false)}
+              activeOpacity={1}
+            />
+            <View style={styles.suggestionsContainer}>
+              {suggestions.map((item, index) => renderSuggestion(item, index))}
+            </View>
+          </>
         )}
       </View>
 
@@ -330,6 +367,15 @@ const styles = StyleSheet.create({
   autocompleteContainer: {
     position: 'relative',
     zIndex: 1000,
+  },
+  overlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    zIndex: 1500,
+    backgroundColor: 'transparent',
   },
   inputContainer: {
     flexDirection: 'row',
@@ -395,9 +441,9 @@ const styles = StyleSheet.create({
       width: 0,
       height: 2,
     },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 5, // Para Android
+    shadowOpacity: 0.15,
+    shadowRadius: 6,
+    elevation: 8, // Aumentado para Android
   },
   suggestionItem: {
     flexDirection: 'row',

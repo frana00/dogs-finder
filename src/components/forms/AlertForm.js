@@ -194,6 +194,9 @@ const AlertForm = ({
       newFormDataState.description = cleanDescription;
       newFormDataState.date = initialData.date ? new Date(initialData.date) : new Date();
       newFormDataState.contactEmail = parsedFields.contactEmail || initialData.contactEmail || user?.email || defaultFormData.contactEmail;
+      
+      // Ensure countryCode is never null or undefined
+      newFormDataState.countryCode = initialData.countryCode || defaultFormData.countryCode;
 
       setFormData(newFormDataState);
       
@@ -231,7 +234,7 @@ const AlertForm = ({
         newErrors.location = 'La ubicación es requerida';
       }
 
-      if (!formData.countryCode.trim()) {
+      if (!formData.countryCode?.trim()) {
         newErrors.countryCode = 'El código del país es requerido';
       }
 
@@ -467,7 +470,7 @@ const AlertForm = ({
     }
 
     // Country code is only required if using postal code
-    if (hasPostalCode && !formData.countryCode.trim()) {
+    if (hasPostalCode && !formData.countryCode?.trim()) {
       newErrors.countryCode = 'El código del país es requerido cuando usas código postal';
     }
 
